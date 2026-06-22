@@ -1,0 +1,78 @@
+import { seedOrder } from '../lib/balancer.js'
+import { matchWinner } from '../lib/match.js'
+
+const nextPow2 = n => { let p = 1; while (p < n) p *= 2; return p }
+
+// 표준 시드 배치 순서(1번시드와 2번시드가 결승에서 만나도록)
+function seedSlots(size) {
+  let rounds = [[1, 2]]
+  while (rounds[0].length < size) {
+    const prev = rounds[0]
+    const sum = prev.length * 2 + 1
+    const next = []
+    for (const s of prev) { next.push(s); next.push(sum - s) }
+    rounds = [next]
+  }
+  return rounds[0] // 길이 size, 값은 시드번호(1-based)
+}
+
+export function generate(teams, settings) {
+  const seeded = seedOrder(teams)
+  const size = nextPow2(seeded.length)
+  const slots = seedSlots(size).map(seedNo => seeded[seedNo - 1] || null) // null = bye 자리
+
+  const matches = []
+  const rounds = []
+  let mid = 0
+  const newId = () => `m${++mid}`
+
+  // 1라운드: 인접한 두 슬롯끼리
+  let round1 = []
+  for (let i = 0; i < size; i += 2) {
+    const a = slots[i], b = slots[i + 1]
+    const m = {
+      id: newId(), round: 1, slot: i / 2, court: null,
+      teamA: a ? a.id : null, teamB: b ? b.id : null,
+      games: [], status: 'pending', winner: null,
+    }
+    if (m.teamA && !m.teamB) { m.status = 'done'; m.winner = m.teamA }
+    else if (!m.teamA && m.teamB) { m.status = 'done'; m.winner = m.teamB }
+    matches.push(m); round1.push(m.id)
+  }
+  rounds.push(round1)
+
+  let count = size / 2
+  while (count > 1) {
+    count = count / 2
+    const r = []
+    for (let i = 0; i < count; i++) {
+      const m = { id: newId(), round: rounds.length + 1, slot: i, court: null,
+        teamA: null, teamB: null, games: [], status: 'pending', winner: null }
+      matches.push(m); r.push(m.id)
+    }
+    rounds.push(r)
+  }
+
+  const state = { structure: { rounds }, matches }
+  return propagate(state, settings) // bye 승자를 다음 라운드로 전진
+}
+
+// 결과로부터 다음 라운드 teamA/teamB를 다시 채움(멱등) — recompute의 핵심
+export function propagate(state, settings = { bestOf: 1 }) {
+  const { rounds } = state.structure
+  const byId = id => state.matches.find(m => m.id === id)
+  for (let r = 0; r < rounds.length - 1; r++) {
+    for (let i = 0; i < rounds[r].length; i++) {
+      const m = byId(rounds[r][i])
+      const parent = byId(rounds[r + 1][Math.floor(i / 2)])
+      const slotKey = i % 2 === 0 ? 'teamA' : 'teamB'
+      m.winner = m.status === 'done' && m.teamA && m.teamB
+        ? (matchWinner(m.games, settings.bestOf) === 'A' ? m.teamA : m.teamB)
+        : (m.teamA && !m.teamB ? m.teamA : (!m.teamA && m.teamB ? m.teamB : m.winner))
+      parent[slotKey] = m.winner || null
+    }
+  }
+  return state
+}
+
+export default { generate, propagate }
