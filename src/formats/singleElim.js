@@ -16,6 +16,18 @@ function seedSlots(size) {
   return rounds[0] // 길이 size, 값은 시드번호(1-based)
 }
 
+// 한 경기의 승자 id. 부전승(한쪽만 존재) 또는 점수로 결정. 미결정이면 null
+function winnerOf(m, settings) {
+  if (!m) return null
+  if (m.teamA && !m.teamB) return m.teamA
+  if (!m.teamA && m.teamB) return m.teamB
+  if (m.teamA && m.teamB && m.games.length) {
+    const w = matchWinner(m.games, settings.bestOf)
+    return w === 'A' ? m.teamA : w === 'B' ? m.teamB : null
+  }
+  return null
+}
+
 export function generate(teams, settings) {
   const seeded = seedOrder(teams)
   const size = nextPow2(seeded.length)
@@ -26,7 +38,7 @@ export function generate(teams, settings) {
   let mid = 0
   const newId = () => `m${++mid}`
 
-  // 1라운드: 인접한 두 슬롯끼리
+  // 1라운드: 인접한 두 슬롯끼리 (부전승 처리는 recompute가 일괄 수행)
   let round1 = []
   for (let i = 0; i < size; i += 2) {
     const a = slots[i], b = slots[i + 1]
@@ -35,12 +47,11 @@ export function generate(teams, settings) {
       teamA: a ? a.id : null, teamB: b ? b.id : null,
       games: [], status: 'pending', winner: null,
     }
-    if (m.teamA && !m.teamB) { m.status = 'done'; m.winner = m.teamA }
-    else if (!m.teamA && m.teamB) { m.status = 'done'; m.winner = m.teamB }
     matches.push(m); round1.push(m.id)
   }
   rounds.push(round1)
 
+  // 이후 라운드: 빈 경기 칸 미리 생성(teamA/B는 recompute가 진출자로 채움)
   let count = size / 2
   while (count > 1) {
     count = count / 2
@@ -53,47 +64,43 @@ export function generate(teams, settings) {
     rounds.push(r)
   }
 
-  const state = { structure: { rounds }, matches }
-  return propagate(state, settings) // bye 승자를 다음 라운드로 전진
+  return recompute({ structure: { rounds }, matches }, settings)
 }
 
-// 결과로부터 다음 라운드 teamA/teamB를 다시 채움(멱등) — recompute의 핵심
-export function propagate(state, settings = { bestOf: 1 }) {
-  const { rounds } = state.structure
-  const byId = id => state.matches.find(m => m.id === id)
-  for (let r = 0; r < rounds.length - 1; r++) {
+// 저장된 경기 점수만으로 전체 브라켓을 재유도(멱등).
+// 진출자가 실제로 바뀐 하류 경기의 "낡은" 점수만 무효화하므로,
+// 무관한 초기 경기 점수 수정이 하류 결과를 날리지 않는다. (수정·되돌리기 안전)
+export function recompute(state, settings = { bestOf: 1 }) {
+  const next = structuredClone(state)
+  const { rounds } = next.structure
+  const byId = id => next.matches.find(m => m.id === id)
+
+  for (let r = 0; r < rounds.length; r++) {
     for (let i = 0; i < rounds[r].length; i++) {
       const m = byId(rounds[r][i])
-      const parent = byId(rounds[r + 1][Math.floor(i / 2)])
-      const slotKey = i % 2 === 0 ? 'teamA' : 'teamB'
-      m.winner = m.status === 'done' && m.teamA && m.teamB
-        ? (matchWinner(m.games, settings.bestOf) === 'A' ? m.teamA : m.teamB)
-        : (m.teamA && !m.teamB ? m.teamA : (!m.teamA && m.teamB ? m.teamB : m.winner))
-      parent[slotKey] = m.winner || null
+      if (r > 0) {
+        // 진출자 = 직전 라운드 두 경기의 승자
+        const newA = winnerOf(byId(rounds[r - 1][i * 2]), settings)
+        const newB = winnerOf(byId(rounds[r - 1][i * 2 + 1]), settings)
+        // 진출자가 바뀌었으면 이 경기의 기존 점수는 무효
+        if (m.teamA !== newA || m.teamB !== newB) { m.games = []; m.status = 'pending' }
+        m.teamA = newA; m.teamB = newB
+      }
+      const w = winnerOf(m, settings)
+      m.winner = w
+      m.status = w ? 'done' : 'pending'
     }
   }
-  return state
+  return next
 }
 
-// 점수 입력/수정: 해당 경기 games·status 갱신 후 전체 재전파(되돌리기 포함)
+// 점수 입력/수정: 해당 경기 games 갱신 후 전체 재유도(되돌리기 포함)
 export function applyResult(state, matchId, games, settings) {
   const next = structuredClone(state)
   const m = next.matches.find(x => x.id === matchId)
   if (!m) return next
   m.games = games
-  const w = matchWinner(games, settings.bestOf)
-  m.status = w ? 'done' : 'pending'
   return recompute(next, settings)
-}
-
-// 저장된 결과만으로 하류 대진 전부 재계산(멱등)
-export function recompute(state, settings) {
-  const next = structuredClone(state)
-  for (const m of next.matches) {
-    if (m.round > 1) { m.teamA = null; m.teamB = null; m.winner = null
-      m.games = []; m.status = 'pending' }
-  }
-  return propagate(next, settings)
 }
 
 export function isComplete(state) {
@@ -109,4 +116,4 @@ export function standings(state) {
   return { champion }
 }
 
-export default { generate, propagate, applyResult, recompute, isComplete, standings }
+export default { generate, recompute, applyResult, isComplete, standings }

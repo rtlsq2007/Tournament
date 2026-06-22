@@ -53,4 +53,18 @@ describe('singleElim.applyResult/recompute', () => {
     expect(isComplete(s)).toBe(true)
     expect(standings(s).champion).toBe(final.teamA)
   })
+
+  it('진출자가 안 바뀌는 초기 점수 수정은 하류(결승) 결과를 보존한다', () => {
+    let s = start()
+    const r1 = s.matches.filter(m => m.round === 1)
+    s = applyResult(s, r1[0].id, [{ a: 21, b: 1 }], { bestOf: 1 })  // r1[0] teamA 승
+    s = applyResult(s, r1[1].id, [{ a: 21, b: 1 }], { bestOf: 1 })  // r1[1] teamA 승
+    let final = s.matches.find(m => m.round === 2)
+    s = applyResult(s, final.id, [{ a: 21, b: 5 }], { bestOf: 1 })  // 결승 완료
+    const championBefore = standings(s).champion
+    // r1[0] 점수만 수정(승자는 동일 teamA) → 결승 진출자 불변 → 결승 결과 보존돼야
+    s = applyResult(s, r1[0].id, [{ a: 21, b: 19 }], { bestOf: 1 })
+    expect(isComplete(s)).toBe(true)
+    expect(standings(s).champion).toBe(championBefore)
+  })
 })
