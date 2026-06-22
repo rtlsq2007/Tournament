@@ -75,4 +75,38 @@ export function propagate(state, settings = { bestOf: 1 }) {
   return state
 }
 
-export default { generate, propagate }
+// 점수 입력/수정: 해당 경기 games·status 갱신 후 전체 재전파(되돌리기 포함)
+export function applyResult(state, matchId, games, settings) {
+  const next = structuredClone(state)
+  const m = next.matches.find(x => x.id === matchId)
+  if (!m) return next
+  m.games = games
+  const w = matchWinner(games, settings.bestOf)
+  m.status = w ? 'done' : 'pending'
+  return recompute(next, settings)
+}
+
+// 저장된 결과만으로 하류 대진 전부 재계산(멱등)
+export function recompute(state, settings) {
+  const next = structuredClone(state)
+  for (const m of next.matches) {
+    if (m.round > 1) { m.teamA = null; m.teamB = null; m.winner = null
+      m.games = []; m.status = 'pending' }
+  }
+  return propagate(next, settings)
+}
+
+export function isComplete(state) {
+  const last = state.structure.rounds[state.structure.rounds.length - 1]
+  const finalMatch = state.matches.find(m => m.id === last[0])
+  return finalMatch.status === 'done' && !!finalMatch.winner
+}
+
+export function standings(state) {
+  const champion = isComplete(state)
+    ? state.matches.find(m => m.id === state.structure.rounds.at(-1)[0]).winner
+    : null
+  return { champion }
+}
+
+export default { generate, propagate, applyResult, recompute, isComplete, standings }
