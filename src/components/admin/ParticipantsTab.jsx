@@ -6,6 +6,23 @@ let _pid = 0
 const newPid = () => `p${Date.now().toString(36)}_${++_pid}`
 const mkP = name => ({ id: newPid(), name, tier: 3, gender: 'M', checkedIn: true })
 
+// 별점: 마우스 올린 지점까지 연하게 미리보기, 누르면 설정
+function StarRating({ tier, onSet }) {
+  const [hover, setHover] = useState(0)
+  return (
+    <span className="pc-stars" onPointerLeave={() => setHover(0)}>
+      {[1, 2, 3, 4, 5].map(s => {
+        const cls = s <= tier ? 'on' : (hover && s <= hover ? 'preview' : '')
+        return (
+          <span key={s} className={`pc-star ${cls}`}
+            onPointerEnter={() => setHover(s)}
+            onPointerDown={e => { e.stopPropagation(); onSet(s) }}>★</span>
+        )
+      })}
+    </span>
+  )
+}
+
 export default function ParticipantsTab({ participants, setParticipants, teams, setTeams, matchType, swapPlayers, swapTeams, deletePlayer }) {
   const [sub, setSub] = useState('list')
   const [bulk, setBulk] = useState(participants.map(p => p.name).join('\n'))
@@ -81,12 +98,7 @@ export default function ParticipantsTab({ participants, setParticipants, teams, 
                     data-pid={pid} onPointerDown={e => playerSwap.begin(e, pid)}>
                     <span className="pc-grip">⠿</span>
                     <span className="pc-name">{pName(pid)}</span>
-                    <span className="pc-stars">
-                      {[1, 2, 3, 4, 5].map(s => (
-                        <span key={s} className={`pc-star ${pTier(pid) >= s ? 'on' : ''}`}
-                          onPointerDown={e => { e.stopPropagation(); setTier(pid, s) }}>★</span>
-                      ))}
-                    </span>
+                    <StarRating tier={pTier(pid)} onSet={s => setTier(pid, s)} />
                   </span>
                 ))}
               </div>

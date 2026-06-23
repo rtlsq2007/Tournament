@@ -191,7 +191,9 @@ body {
 .round-label { align-self:flex-start; font-size:12px; font-weight:700; color:var(--text); background:var(--surface-2);
   border:1px solid var(--border-strong); padding:5px 12px; border-radius:var(--r-pill); margin-bottom:14px; }
 .bracket-round .matches { display:flex; flex-direction:column; justify-content:space-around; flex:1; }
-.bmatch { display:flex; flex-direction:column; gap:5px; margin:9px 0; position:relative; }
+.bmatch { display:flex; flex-direction:column; gap:6px; margin:11px 0; position:relative;
+  border:1px solid var(--border-strong); border-radius:13px; padding:7px; background:var(--surface-2); }
+.bmatch:has(.champ-box) { border:none; padding:0; background:none; }
 .round-label-float { position:absolute; top:-34px; left:0; margin:0 !important; }
 .bteam { display:flex; align-items:center; justify-content:space-between; gap:10px; width:210px; background:var(--surface);
   border:1px solid var(--border); border-radius:9px; padding:9px 12px; font-size:14px; font-weight:500; transition:border-color .15s ease; }
@@ -246,7 +248,8 @@ body {
 .pchip .pc-name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .pc-stars { display:inline-flex; gap:1px; flex:none; }
 .pc-star { cursor:pointer; color:var(--border-strong); font-size:14px; line-height:1; transition:color .1s ease; }
-.pc-star:hover, .pc-star.on { color:var(--warn); }
+.pc-star.on { color:var(--warn); }
+.pc-star.preview { color:rgba(245,158,11,.45); } /* 호버 미리보기(연하게) */
 .bplayer.empty-slot { justify-content:center; border-style:dashed; color:var(--text-muted); font-weight:400; }
 
 /* 드래그 삭제 휴지통 존 */
@@ -307,10 +310,18 @@ body {
 .bteam.dragging { opacity:.4; }
 .bteam.swap-target { border-color:var(--accent); box-shadow:0 0 0 2px var(--accent-weak); }
 
-/* 우승 자리 */
-.champ-box { min-width:170px; padding:14px 16px; border-radius:11px; text-align:center; font-weight:800; font-size:15px;
-  color:#fff; background:linear-gradient(135deg, var(--accent-strong), #a78bfa); box-shadow:var(--shadow-md); }
-.champ-box.waiting { color:var(--text-muted); background:var(--surface); border:1px dashed var(--border-strong); box-shadow:none; font-weight:600; }
+/* 우승 자리 — 화려하게 */
+.champ-box { position:relative; overflow:hidden; min-width:196px; padding:20px 22px; border-radius:16px;
+  text-align:center; font-weight:900; font-size:18px; letter-spacing:-0.01em; color:#fff;
+  background:linear-gradient(135deg, #f59e0b 0%, var(--accent-strong) 55%, #a78bfa 100%);
+  box-shadow:0 0 0 1px rgba(255,255,255,.14), 0 12px 34px rgba(99,102,241,.5); }
+.champ-box::after { content:'👑'; position:absolute; top:-6px; right:8px; font-size:22px; opacity:.85; transform:rotate(18deg); }
+.champ-box::before { content:''; position:absolute; top:0; left:-60%; width:60%; height:100%;
+  background:linear-gradient(100deg, transparent, rgba(255,255,255,.35), transparent); animation:champShine 3.2s ease-in-out infinite; }
+@keyframes champShine { 0%,60% { left:-60%; } 100% { left:130%; } }
+.champ-box.waiting { color:var(--text-muted); background:var(--surface); border:1px dashed var(--border-strong);
+  box-shadow:none; font-weight:600; font-size:15px; }
+.champ-box.waiting::after, .champ-box.waiting::before { display:none; }
 
 /* 대진표 툴바 (확대/축소) */
 .bracket-toolbar { position:sticky; top:0; display:flex; align-items:center; gap:10px; margin-bottom:16px; z-index:2;

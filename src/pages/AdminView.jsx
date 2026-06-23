@@ -10,7 +10,7 @@ import ParticipantsTab from '../components/admin/ParticipantsTab.jsx'
 const TABS = [
   { key: 'info', label: '경기정보', ico: '⚙️' },
   { key: 'players', label: '참가자', ico: '👥' },
-  { key: 'results', label: '경기결과', ico: '📋' },
+  { key: 'results', label: '경기판정', ico: '📋' },
   { key: 'share', label: '공유', ico: '🔗' },
 ]
 const FORMATS = [
@@ -198,7 +198,7 @@ export default function AdminView() {
 
         {tab === 'results' && (
           <div>
-            <div className="panel-title">경기 결과 등록</div>
+            <div className="panel-title">경기 판정</div>
             <div className="panel-hint">승자를 선택하면 다음 강으로 자동 진출합니다. 정확한 점수도 입력할 수 있습니다.</div>
             {work.structure.rounds.map((round, ri) => (
               <div className="rgroup" key={ri}>
