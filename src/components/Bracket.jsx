@@ -1,12 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 
-// 팀 표시: 커스텀 이름이 있으면 이름, 없으면 소속 선수명들(쌓아서)
-function teamLines(team, participants) {
-  if (!team) return null
-  if (team.label && team.label.trim()) return [team.label.trim()]
-  return team.playerIds.map(pid => participants.find(p => p.id === pid)?.name || '?')
-}
-
 // 우측 라이브 대진표. 읽기 전용 + SVG 연결선(소스 기반).
 export default function Bracket({ state, teams, participants = [], highlightTeamIds = [] }) {
   const wrapRef = useRef(null)
@@ -54,16 +47,29 @@ export default function Bracket({ state, teams, participants = [], highlightTeam
     return m.games.reduce((s, g) => s + (g[side] > g[other] ? 1 : 0), 0)
   }
 
+  const teamNo = id => teams.findIndex(t => t.id === id) + 1
+  const playerNames = team => team.playerIds.map(pid => participants.find(p => p.id === pid)?.name || '?')
+
   const Slot = ({ teamId, src, isWin, score }) => {
     const team = teamId ? teamById(teamId) : null
-    const lines = teamLines(team, participants)
-    const waiting = !teamId && src?.match
+    const waiting = !teamId && src?.match // 이전 경기 승자를 기다리는 중
+    const cls = `bteam ${team ? '' : 'empty'} ${isWin ? 'win' : ''} ${highlightTeamIds.includes(teamId) ? 'win' : ''}`
+    if (!team) {
+      return <div className={cls}><span className="bteam-player muted">{waiting ? '승자 진출 대기' : ''}</span></div>
+    }
+    const names = playerNames(team)
+    const isDoubles = names.length > 1
+    const header = team.label?.trim() || `${teamNo(teamId)}팀`
     return (
-      <div className={`bteam ${team ? '' : 'empty'} ${isWin ? 'win' : ''} ${highlightTeamIds.includes(teamId) ? 'win' : ''}`}>
-        <span className="bteam-names">
-          {lines ? lines.map((n, i) => <span key={i} className="bteam-player">{n}</span>)
-            : <span className="bteam-player muted">{waiting ? '승자 진출 대기' : '–'}</span>}
-        </span>
+      <div className={cls}>
+        {isDoubles ? (
+          <div className="bteam-team">
+            <div className="bteam-head">{header}</div>
+            <div className="bteam-names">{names.map((n, i) => <span key={i} className="bteam-player">{n}</span>)}</div>
+          </div>
+        ) : (
+          <span className="bteam-names"><span className="bteam-player">{names[0]}</span></span>
+        )}
         {score !== '' && score != null && <span className="bscore">{score}</span>}
       </div>
     )

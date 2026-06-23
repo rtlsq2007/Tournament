@@ -24,7 +24,7 @@ const PAIRING = [{ key: 'auto', label: '자동 밸런싱' }, { key: 'manual', la
 const BEST_OF = [{ v: 1, label: '단판' }, { v: 3, label: '3판2선' }, { v: 5, label: '5판3선' }]
 
 function demoData() {
-  const participants = Array.from({ length: 8 }, (_, i) => ({
+  const participants = Array.from({ length: 10 }, (_, i) => ({
     id: `p${i + 1}`, name: `선수${i + 1}`, tier: 5 - (i % 5), gender: 'M', checkedIn: true,
   }))
   return {
@@ -129,7 +129,7 @@ export default function AdminView() {
               <div className="seg">{MATCH_TYPES.map(m => (
                 <button key={m.key} className={data.matchType === m.key ? 'active' : ''}
                   onClick={() => setData({ ...data, matchType: m.key })}>{m.label}</button>))}</div></div>
-            <div className="field"><label>팀 구성</label>
+            <div className="field"><label>{data.matchType === 'singles' ? '매칭 밸런싱' : '팀 구성'}</label>
               <div className="seg">{PAIRING.map(p => (
                 <button key={p.key} className={data.pairingMode === p.key ? 'active' : ''}
                   onClick={() => setData({ ...data, pairingMode: p.key })}>{p.label}</button>))}</div></div>
@@ -137,14 +137,6 @@ export default function AdminView() {
               <div className="seg">{BEST_OF.map(b => (
                 <button key={b.v} className={data.settings.bestOf === b.v ? 'active' : ''}
                   onClick={() => setSetting({ bestOf: b.v })}>{b.label}</button>))}</div></div>
-            <div className="row-between">
-              <label className="small" style={{ fontWeight: 600, color: 'var(--text-muted)' }}>코트 수</label>
-              <div className="count-pill">
-                <button onClick={() => setSetting({ courts: Math.max(1, data.settings.courts - 1) })}>−</button>
-                <span>{data.settings.courts}</span>
-                <button onClick={() => setSetting({ courts: Math.min(12, data.settings.courts + 1) })}>＋</button>
-              </div>
-            </div>
           </div>
         )}
 
@@ -200,10 +192,16 @@ function ResultCard({ match, teams, participants, onResult, onPick }) {
     if (t.label?.trim()) return t.label.trim()
     return t.playerIds.map(pid => participants.find(p => p.id === pid)?.name || '?').join(' · ')
   }
-  const init = match.games?.length ? match.games[0] : { a: '', b: '' }
-  const [a, setA] = useState(init.a)
-  const [b, setB] = useState(init.b)
+  const [a, setA] = useState('')
+  const [b, setB] = useState('')
+  // 저장된 점수와 입력칸 동기화 (대진표/카드에서 점수가 유지되도록)
+  useEffect(() => {
+    const g = match.games?.length ? match.games[0] : { a: '', b: '' }
+    setA(g.a); setB(g.b)
+  }, [match.games])
+
   const ready = match.teamA && match.teamB
+  const loneA = match.teamA && !match.teamB && match.srcB == null // 상대 없는 경기
 
   // 점수 입력 → 자동 반영(별도 저장 버튼 없음). 두 값이 유효하고 서로 다르면 적용.
   const applyScore = () => {
@@ -214,6 +212,7 @@ function ResultCard({ match, teams, participants, onResult, onPick }) {
   }
 
   const head = ready ? '승자 선택 또는 점수 입력'
+    : loneA ? '상대 없음 — 부전승 가능'
     : (match.srcA?.match || match.srcB?.match) ? '이전 경기 결과 대기' : '상대 미정'
 
   return (
@@ -228,13 +227,17 @@ function ResultCard({ match, teams, participants, onResult, onPick }) {
         <input className="gc-score-in" value={b} disabled={!ready}
           onChange={e => setB(e.target.value)} onBlur={applyScore}
           onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()} />
-        <span className="gc-name" style={{ textAlign: 'right' }}>{label(match.teamB)}</span>
+        <span className="gc-name" style={{ textAlign: 'right' }}>{match.teamB ? label(match.teamB) : '—'}</span>
       </div>
       {ready && (
         <div className="win-pick">
           <button className={match.winner === match.teamA ? 'chosen' : ''} onClick={() => onPick(match.id, match.teamA)}>◀ {label(match.teamA)} 승</button>
           <button className={match.winner === match.teamB ? 'chosen' : ''} onClick={() => onPick(match.id, match.teamB)}>{label(match.teamB)} 승 ▶</button>
         </div>
+      )}
+      {loneA && (
+        <button className={`btn ${match.winner ? 'btn-primary' : ''}`} style={{ width: '100%', marginTop: 8 }}
+          onClick={() => onPick(match.id, match.teamA)}>부전승 진출 →</button>
       )}
     </div>
   )

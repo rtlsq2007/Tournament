@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { pairTeams } from '../../lib/balancer.js'
 
 let _pid = 0
 const newPid = () => `p${Date.now().toString(36)}_${++_pid}`
@@ -21,7 +22,8 @@ export default function ParticipantsTab({ participants, setParticipants, teams, 
     setParticipants([...participants, ...add])
   }
   const removeStep = () => setParticipants(participants.slice(0, Math.max(0, participants.length - step)))
-  const shuffle = () => setParticipants([...participants].sort(() => Math.random() - 0.5))
+  // 셔플: 선수를 무작위로 재편성(팀·대진표 반영). 간단입력 명단은 그대로(이름은 안 바뀌므로).
+  const shuffle = () => setTeams(pairTeams(participants.filter(p => p.checkedIn), { matchType, mode: 'random' }))
   const applyBulk = () => {
     const names = bulk.split('\n').map(s => s.trim()).filter(Boolean)
     setParticipants(names.map(name => participants.find(p => p.name === name)
