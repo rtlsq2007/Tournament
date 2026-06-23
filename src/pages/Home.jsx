@@ -28,7 +28,7 @@ export default function Home() {
   const [name, setName] = useState('')
   const [format, setFormat] = useState('single_elim')
   const [matchType, setMatchType] = useState('doubles')
-  const [pairingMode, setPairingMode] = useState('auto')
+  const [pairingMode, setPairingMode] = useState('manual')
   const [bestOf, setBestOf] = useState(1)
   const [courts, setCourts] = useState(2)
   const [busy, setBusy] = useState(false)

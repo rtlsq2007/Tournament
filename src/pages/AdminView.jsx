@@ -28,7 +28,7 @@ function demoData() {
     id: `p${i + 1}`, name: `선수${i + 1}`, tier: 5 - (i % 5), gender: 'M', checkedIn: true,
   }))
   return {
-    name: '데모 대회', format: 'single_elim', matchType: 'doubles', pairingMode: 'auto',
+    name: '데모 대회', format: 'single_elim', matchType: 'doubles', pairingMode: 'manual',
     status: 'in_progress', settings: { pointsToWin: 21, bestOf: 1, courts: 2 }, participants,
   }
 }
@@ -52,13 +52,15 @@ export default function AdminView() {
       .catch(e => setError(e.message))
   }, [id, demo])
 
-  // 참가자/설정 → 팀 자동 구성 (직접 구성 시에도 초기 팀은 자동 생성 후 드래그로 조정)
+  // 참가자 '구성'이 바뀔 때만 팀 재구성 (인원 추가/삭제·종목·구성방식).
+  // 이름/티어만 바뀐 경우(=ID 집합 동일)엔 재구성하지 않아 팀명·드래그 배치가 유지됨.
+  const activeIdsKey = participants.filter(p => p.checkedIn).map(p => p.id).join(',')
   useEffect(() => {
     if (!data) return
     const active = participants.filter(p => p.checkedIn)
     setTeams(pairTeams(active, { matchType: data.matchType, mode: data.pairingMode }))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [participants, data?.matchType, data?.pairingMode])
+  }, [activeIdsKey, data?.matchType, data?.pairingMode])
 
   // 팀 → 대진표 생성
   useEffect(() => {
@@ -199,11 +201,9 @@ export default function AdminView() {
       <div className="editor-bracket">
         <div className="bracket-toolbar">
           <span className="muted small" style={{ fontWeight: 600 }}>대진표 크기</span>
-          <div className="seg" style={{ width: 'auto' }}>
-            {[0.5, 0.75, 1].map(z => (
-              <button key={z} className={zoom === z ? 'active' : ''} onClick={() => setZoom(z)}>{z * 100}%</button>
-            ))}
-          </div>
+          <input type="range" className="zoom-range" min="0.4" max="1.5" step="0.05"
+            value={zoom} onChange={e => setZoom(Number(e.target.value))} />
+          <span className="muted small" style={{ minWidth: 42, textAlign: 'right', fontWeight: 600 }}>{Math.round(zoom * 100)}%</span>
         </div>
         <Bracket state={work} teams={teams} participants={participants} editable swapPlayers={swapPlayers} zoom={zoom} />
       </div>
@@ -215,7 +215,7 @@ function ResultCard({ match, teams, participants, onResult, onPick }) {
   const label = id => {
     const t = teams.find(x => x.id === id)
     if (!t) return '미정'
-    if (t.playerIds.length > 1) return t.label?.trim() || `${teams.findIndex(x => x.id === id) + 1}팀` // 복식: 팀명
+    if (t.playerIds.length > 1) return t.label?.trim() || `${t.no}팀` // 복식: 팀명
     return participants.find(p => p.id === t.playerIds[0])?.name || '?' // 단식: 선수명
   }
   const [a, setA] = useState('')

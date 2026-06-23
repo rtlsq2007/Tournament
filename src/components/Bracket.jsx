@@ -46,9 +46,10 @@ export default function Bracket({ state, teams, participants = [], highlightTeam
 
   const byId = id => state.matches.find(m => m.id === id)
   const teamById = id => teams.find(t => t.id === id)
-  const teamNo = id => teams.findIndex(t => t.id === id) + 1
-  const teamName = team => team.label?.trim() || `${teamNo(team.id)}팀`
-  const playerNames = team => team.playerIds.map(pid => participants.find(p => p.id === pid)?.name || '?')
+  const teamName = team => team.label?.trim() || `${team.no}팀`
+  const pName = pid => participants.find(p => p.id === pid)?.name || '?'
+  const pTier = pid => participants.find(p => p.id === pid)?.tier
+  const playerNames = team => team.playerIds.map(pName)
   const scoreOf = (m, side) => {
     if (!m.games?.length) return ''
     const other = side === 'a' ? 'b' : 'a'
@@ -73,7 +74,12 @@ export default function Bracket({ state, teams, participants = [], highlightTeam
             <span className="bteam-head">{teamName(team)}</span>
             {score !== '' && score != null && <span className="bscore">{score}</span>}
           </div>
-          {names.map((n, i) => <div key={i} className={`bplayer ${playerCls(ids[i])}`} {...dragProps(ids[i])}>{n}</div>)}
+          {names.map((n, i) => (
+            <div key={i} className={`bplayer ${playerCls(ids[i])}`} {...dragProps(ids[i])}>
+              <span className="bp-name">{n}</span>
+              {pTier(ids[i]) ? <span className="bp-tier">★{pTier(ids[i])}</span> : null}
+            </div>
+          ))}
         </div>
       )
     }

@@ -14,8 +14,8 @@ export default function ParticipantsTab({ participants, setParticipants, teams, 
   const pName = id => participants.find(p => p.id === id)?.name || '?'
   const pTier = id => participants.find(p => p.id === id)?.tier || 0
   const teamLabel = id => {
-    const i = teams.findIndex(t => t.id === id)
-    return teams[i]?.label?.trim() || `${i + 1}팀`
+    const t = teams.find(x => x.id === id)
+    return t?.label?.trim() || `${t?.no}팀`
   }
 
   // 드래그 스왑: 선수(칩) / 팀(카드)
@@ -23,10 +23,11 @@ export default function ParticipantsTab({ participants, setParticipants, teams, 
   const teamSwap = useSwap({ attr: 'data-team', onSwap: swapTeams, labelOf: teamLabel })
 
   // 간단 입력(선수 명단): 타이핑하면 버튼 없이 바로 반영
+  // 인덱스 기준으로 매핑 — 이름만 바꾸면 같은 선수(id 유지)라 팀/팀명이 깨지지 않음
   const onBulk = v => {
     setBulk(v)
     const names = v.split('\n').map(s => s.trim()).filter(Boolean)
-    setParticipants(names.map(name => participants.find(p => p.name === name) || mkP(name)))
+    setParticipants(names.map((name, i) => participants[i] ? { ...participants[i], name } : mkP(name)))
   }
   const setCount = next => { setParticipants(next); setBulk(next.map(p => p.name).join('\n')) }
   const addStep = () => setCount([...participants, ...Array.from({ length: step }, (_, k) => mkP(`참가자${participants.length + k + 1}`))])
@@ -65,9 +66,9 @@ export default function ParticipantsTab({ participants, setParticipants, teams, 
               key={t.id} data-team={t.id} title="카드를 꾹 눌러 드래그하면 팀 위치를 바꿀 수 있어요"
               onPointerDown={e => { if (e.target.closest('.team-name-in') || e.target.closest('.pchip')) return; teamSwap.begin(e, t.id) }}>
               <div className="tc-head">
-                <span className="tnum">{i + 1}</span>
+                <span className="tnum">{t.no}</span>
                 <input className="team-name-in" value={t.label}
-                  onChange={e => renameTeam(t.id, e.target.value)} placeholder={`${i + 1}팀`} />
+                  onChange={e => renameTeam(t.id, e.target.value)} placeholder={`${t.no}팀`} />
                 {step === 2 && <span className="tc-sum">전력 {t.tierSum}</span>}
               </div>
               <div className="tc-members">

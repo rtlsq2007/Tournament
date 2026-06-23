@@ -277,10 +277,13 @@ body {
 .bteam-player.swap-target { background:var(--accent-weak); box-shadow:0 0 0 2px var(--accent); }
 
 /* 복식 팀: 선수별 분리 박스 + 팀명 헤더 */
-.bteam.doubles { flex-direction:column; align-items:stretch; gap:5px; padding:8px; }
+.bteam.doubles { flex-direction:column; align-items:stretch; gap:5px; padding:8px; width:252px; }
 .bteam-head-row { display:flex; align-items:center; justify-content:space-between; gap:8px; }
-.bplayer { border:1px solid var(--border-strong); border-radius:7px; padding:7px 10px; background:var(--surface-2);
-  font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; transition:all .12s ease; }
+.bplayer { display:flex; align-items:center; justify-content:space-between; gap:8px;
+  border:1px solid var(--border-strong); border-radius:7px; padding:8px 11px; background:var(--surface-2);
+  font-size:13px; font-weight:600; transition:all .12s ease; }
+.bp-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.bp-tier { color:var(--warn); font-size:11px; font-weight:700; flex:none; }
 .bplayer.bdrag { cursor:grab; touch-action:none; }
 .bplayer.bdrag:active { cursor:grabbing; }
 .bplayer.bdrag:hover { border-color:var(--accent); }
@@ -299,4 +302,6 @@ body {
 .champ-box.waiting { color:var(--text-muted); background:var(--surface); border:1px dashed var(--border-strong); box-shadow:none; font-weight:600; }
 
 /* 대진표 툴바 (확대/축소) */
-.bracket-toolbar { position:sticky; top:0; display:flex; align-items:center; gap:10px; margin-bottom:16px; z-index:2; }
+.bracket-toolbar { position:sticky; top:0; display:flex; align-items:center; gap:10px; margin-bottom:16px; z-index:2;
+  background:var(--bg); padding:6px 0; }
+.zoom-range { flex:1; max-width:260px; accent-color:var(--accent-strong); cursor:pointer; }

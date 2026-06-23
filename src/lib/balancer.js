@@ -49,15 +49,26 @@ function mixedAuto(players) {
   return mixedFrom(men, women)
 }
 
-export function pairTeams(players, { matchType, mode }) {
+function build(players, matchType, mode) {
   if (mode === 'random') {
     if (matchType === 'singles') return singlesTeams(shuffled(players))
     if (matchType === 'mixed') return mixedFrom(shuffled(players.filter(p => p.gender === 'M')), shuffled(players.filter(p => p.gender === 'F')))
     return doublesFrom(shuffled(players))
   }
+  if (mode === 'manual') { // 직접 구성: 입력 순서대로 (밸런싱 없음)
+    if (matchType === 'singles') return singlesTeams(players)
+    if (matchType === 'mixed') return mixedFrom(players.filter(p => p.gender === 'M'), players.filter(p => p.gender === 'F'))
+    return doublesFrom(players)
+  }
+  // auto: 티어 밸런싱
   if (matchType === 'singles') return singlesTeams(players)
   if (matchType === 'mixed') return mixedAuto(players)
   return doublesAuto(players)
+}
+
+export function pairTeams(players, opts) {
+  // 팀에 고유 번호(no) 부여 — 스왑해도 번호가 팀을 따라 이동
+  return build(players, opts.matchType, opts.mode).map((t, i) => ({ ...t, no: i + 1 }))
 }
 
 export function seedOrder(teams) {
