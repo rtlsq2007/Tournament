@@ -207,8 +207,11 @@ body {
 .rgroup > .rg-title { font-size:13px; font-weight:700; color:var(--text-muted); margin-bottom:8px; }
 .gcard { border:1px solid var(--border); border-radius:var(--r-ctrl); padding:12px 14px; margin-bottom:8px; background:var(--surface-2); }
 .gcard .gc-head { font-size:12px; color:var(--text-muted); margin-bottom:8px; }
-.gcard .gc-row { display:flex; align-items:center; justify-content:space-between; gap:10px; }
-.gcard .gc-name { font-weight:600; flex:1; }
+.gcard .gc-teams { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:6px; }
+.gcard .gc-sets { font-weight:800; color:var(--accent); font-size:14px; flex:none; }
+.gcard .gc-row { display:flex; align-items:center; justify-content:center; gap:8px; margin-top:6px; }
+.gcard .gc-set-no { font-size:11px; color:var(--text-muted); width:40px; flex:none; }
+.gcard .gc-name { font-weight:600; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .gcard .gc-score-in { width:52px; text-align:center; padding:7px; border-radius:8px; border:1px solid var(--border-strong);
   background:var(--surface); color:var(--text); font-weight:700; }
 

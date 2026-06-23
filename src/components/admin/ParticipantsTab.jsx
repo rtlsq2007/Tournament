@@ -49,9 +49,13 @@ export default function ParticipantsTab({ participants, setParticipants, teams, 
   const setCount = next => { setParticipants(next); setBulk(next.map(p => p.name).join('\n')) }
   const addStep = () => setCount([...participants, ...Array.from({ length: step }, (_, k) => mkP(`참가자${participants.length + k + 1}`))])
   const removeStep = () => setCount(participants.slice(0, Math.max(0, participants.length - step)))
-  // 셔플: 무작위로 팀 재편성(대진표·조정 반영). 팀명은 자리(순서) 기준으로 유지.
-  const shuffle = () => setTeams(prev => {
-    const fresh = pairTeams(participants.filter(p => p.checkedIn), { matchType, mode: 'random' })
+  // 셔플: 팀명은 자리(순서) 기준으로 유지.
+  const shuffleArr = arr => { const a = [...arr]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[a[i], a[j]] = [a[j], a[i]] } return a }
+  const doShuffle = mode => setTeams(prev => {
+    const active = participants.filter(p => p.checkedIn)
+    // 밸런스(auto)는 동일 티어 순서를 섞어 매번 다른 균형 조합이 나오도록
+    const input = mode === 'auto' ? shuffleArr(active) : active
+    const fresh = pairTeams(input, { matchType, mode })
     return fresh.map((t, i) => prev[i]?.label ? { ...t, label: prev[i].label } : t)
   })
 
@@ -69,7 +73,10 @@ export default function ParticipantsTab({ participants, setParticipants, teams, 
           <span>{participants.length}명{step === 2 ? ` · ${teams.length}팀` : ''}</span>
           <button onClick={addStep} aria-label={`${step}명 늘리기`}>＋</button>
         </div>
-        <button className="btn" onClick={shuffle}>🔀 셔플</button>
+        <div className="row" style={{ gap: 6 }}>
+          <button className="btn" onClick={() => doShuffle('auto')} title="실력(별점) 균형으로 팀 구성">⚖️ 밸런스</button>
+          <button className="btn" onClick={() => doShuffle('random')} title="완전 무작위로 팀 구성">🔀 일반</button>
+        </div>
       </div>
 
       <div className="subtabs">

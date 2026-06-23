@@ -205,7 +205,7 @@ export default function AdminView() {
                 <div className="rg-title">{work.structure.labels[ri]}</div>
                 {round.map(mid => {
                   const m = work.matches.find(x => x.id === mid)
-                  return <ResultCard key={mid} match={m} teams={teams} participants={participants} onResult={onResult} onPick={onPick} />
+                  return <ResultCard key={mid} match={m} teams={teams} participants={participants} bestOf={data.settings.bestOf} onResult={onResult} onPick={onPick} />
                 })}
               </div>
             ))}
@@ -242,50 +242,66 @@ export default function AdminView() {
   )
 }
 
-function ResultCard({ match, teams, participants, onResult, onPick }) {
+function ResultCard({ match, teams, participants, bestOf, onResult, onPick }) {
   const label = id => {
     const t = teams.find(x => x.id === id)
     if (!t) return '미정'
     if (t.playerIds.length > 1) return t.label?.trim() || `${t.no}팀` // 복식: 팀명
     return participants.find(p => p.id === t.playerIds[0])?.name || '?' // 단식: 선수명
   }
-  const [a, setA] = useState('')
-  const [b, setB] = useState('')
-  // 저장된 점수와 입력칸 동기화 (대진표/카드에서 점수가 유지되도록)
-  useEffect(() => {
-    const g = match.games?.length ? match.games[0] : { a: '', b: '' }
-    setA(g.a); setB(g.b)
-  }, [match.games])
+  const rows = bestOf === 1 ? 1 : bestOf
+  const need = Math.floor(bestOf / 2) + 1
+  const [sets, setSets] = useState(() => (match.games || []).map(g => ({ a: String(g.a), b: String(g.b) })))
+  const getSet = i => sets[i] || { a: '', b: '' }
 
   const ready = match.teamA && match.teamB
-  const loneA = match.teamA && !match.teamB && match.srcB == null // 상대 없는 경기
+  const loneA = match.teamA && !match.teamB && match.srcB == null
 
-  // 점수 입력 → 자동 반영(별도 저장 버튼 없음). 두 값이 유효하고 서로 다르면 적용.
-  const applyScore = () => {
-    if (!ready) return
-    const ga = Number(a), gb = Number(b)
-    if (a === '' || b === '' || !Number.isFinite(ga) || !Number.isFinite(gb) || ga === gb) return
-    onResult(match.id, [{ a: ga, b: gb }])
+  // 완성된 세트(양쪽 입력·동점 아님)만 결과로 반영. 점수 높은 쪽이 그 세트 획득.
+  const apply = next => {
+    const games = next
+      .filter(s => s.a !== '' && s.b !== '' && Number(s.a) !== Number(s.b))
+      .map(s => ({ a: Number(s.a), b: Number(s.b) }))
+    onResult(match.id, games)
+  }
+  const setScore = (i, side, v) => {
+    const next = sets.slice()
+    while (next.length <= i) next.push({ a: '', b: '' })
+    next[i] = { ...next[i], [side]: v }
+    setSets(next)
+    if (ready) apply(next)
   }
 
-  const head = ready ? '승자 선택 또는 점수 입력'
+  const wins = sets.reduce((acc, s) => {
+    const a = Number(s.a), b = Number(s.b)
+    if (s.a !== '' && s.b !== '' && a !== b) (a > b ? acc.a++ : acc.b++)
+    return acc
+  }, { a: 0, b: 0 })
+
+  const head = ready ? (bestOf === 1 ? '점수 입력 또는 승자 선택' : `${bestOf}판 ${need}선승 · 세트 점수`)
     : loneA ? '상대 없음 — 부전승 가능'
     : (match.srcA?.match || match.srcB?.match) ? '이전 경기 결과 대기' : '상대 미정'
 
   return (
     <div className="gcard">
       <div className="gc-head">{head}</div>
-      <div className="gc-row">
+      <div className="gc-teams">
         <span className="gc-name">{label(match.teamA)}</span>
-        <input className="gc-score-in" value={a} disabled={!ready}
-          onChange={e => setA(e.target.value)} onBlur={applyScore}
-          onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()} />
-        <span className="muted">:</span>
-        <input className="gc-score-in" value={b} disabled={!ready}
-          onChange={e => setB(e.target.value)} onBlur={applyScore}
-          onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()} />
+        {bestOf > 1 && ready && <span className="gc-sets">{wins.a} : {wins.b}</span>}
         <span className="gc-name" style={{ textAlign: 'right' }}>{match.teamB ? label(match.teamB) : '—'}</span>
       </div>
+      {ready && Array.from({ length: rows }).map((_, i) => (
+        <div className="gc-row" key={i}>
+          {bestOf > 1 && <span className="gc-set-no">{i + 1}세트</span>}
+          <input className="gc-score-in" value={getSet(i).a}
+            onChange={e => setScore(i, 'a', e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()} />
+          <span className="muted">:</span>
+          <input className="gc-score-in" value={getSet(i).b}
+            onChange={e => setScore(i, 'b', e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()} />
+        </div>
+      ))}
       {ready && (
         <div className="win-pick">
           <button className={match.winner === match.teamA ? 'chosen' : ''} onClick={() => onPick(match.id, match.teamA)}>◀ {label(match.teamA)} 승</button>
