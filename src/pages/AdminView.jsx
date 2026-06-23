@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { QRCodeCanvas } from 'qrcode.react'
 import { getTournament } from '../lib/api.js'
