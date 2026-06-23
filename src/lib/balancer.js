@@ -3,7 +3,7 @@ const teamId = () => `t${++_seq}`
 
 // 단식: 1인 1팀
 function singlesTeams(players) {
-  return players.map(p => ({ id: teamId(), label: p.name, playerIds: [p.id], tierSum: p.tier }))
+  return players.map(p => ({ id: teamId(), label: '', playerIds: [p.id], tierSum: p.tier }))
 }
 
 // 복식 auto: 티어 정렬 후 양끝 페어링(고수+하수)
@@ -13,11 +13,11 @@ function doublesAuto(players) {
   let i = 0, j = sorted.length - 1
   while (i < j) {
     const x = sorted[i++], y = sorted[j--]
-    teams.push({ id: teamId(), label: `${x.name}+${y.name}`, playerIds: [x.id, y.id], tierSum: x.tier + y.tier })
+    teams.push({ id: teamId(), label: '', playerIds: [x.id, y.id], tierSum: x.tier + y.tier })
   }
   if (i === j) { // 홀수: 남은 1명 단독(부전 인원)
     const x = sorted[i]
-    teams.push({ id: teamId(), label: x.name, playerIds: [x.id], tierSum: x.tier })
+    teams.push({ id: teamId(), label: '', playerIds: [x.id], tierSum: x.tier })
   }
   return teams
 }
@@ -30,7 +30,7 @@ function mixedAuto(players) {
   const teams = []
   for (let k = 0; k < n; k++) {
     const m = men[k], w = women[k]
-    teams.push({ id: teamId(), label: `${m.name}+${w.name}`, playerIds: [m.id, w.id], tierSum: m.tier + w.tier })
+    teams.push({ id: teamId(), label: '', playerIds: [m.id, w.id], tierSum: m.tier + w.tier })
   }
   return teams
 }

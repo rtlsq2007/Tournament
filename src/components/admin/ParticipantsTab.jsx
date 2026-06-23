@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 
 let _pid = 0
 const newPid = () => `p${Date.now().toString(36)}_${++_pid}`
@@ -7,6 +7,9 @@ export default function ParticipantsTab({ participants, setParticipants, teams, 
   const [sub, setSub] = useState('simple')
   const [bulk, setBulk] = useState(participants.map(p => p.name).join('\n'))
   const step = matchType === 'singles' ? 1 : 2
+
+  // 인원 ±/셔플/적용 등으로 명단이 바뀌면 간단입력 textarea도 동기화 (버그 수정)
+  useEffect(() => { setBulk(participants.map(p => p.name).join('\n')) }, [participants])
 
   const pName = id => participants.find(p => p.id === id)?.name || '?'
   const pTier = id => participants.find(p => p.id === id)?.tier || 0

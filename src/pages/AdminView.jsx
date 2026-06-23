@@ -22,7 +22,6 @@ const FORMATS = [
 const MATCH_TYPES = [{ key: 'doubles', label: '복식' }, { key: 'singles', label: '단식' }, { key: 'mixed', label: '혼복' }]
 const PAIRING = [{ key: 'auto', label: '자동 밸런싱' }, { key: 'manual', label: '직접 구성' }]
 const BEST_OF = [{ v: 1, label: '단판' }, { v: 3, label: '3판2선' }, { v: 5, label: '5판3선' }]
-const roundName = n => (n === 2 ? '결승' : n === 4 ? '준결승' : `${n}강`)
 
 function demoData() {
   const participants = Array.from({ length: 8 }, (_, i) => ({
@@ -74,6 +73,13 @@ export default function AdminView() {
     const fmt = getFormat(data.format)
     setWork(w => {
       const next = fmt.applyResult({ structure: w.structure, matches: w.matches }, matchId, games, data.settings)
+      return { structure: next.structure, matches: next.matches }
+    })
+  }
+  const onPick = (matchId, teamId) => {
+    const fmt = getFormat(data.format)
+    setWork(w => {
+      const next = fmt.pickWinner({ structure: w.structure, matches: w.matches }, matchId, teamId, data.settings)
       return { structure: next.structure, matches: next.matches }
     })
   }
@@ -153,11 +159,10 @@ export default function AdminView() {
             <div className="panel-hint">승자를 선택하면 다음 강으로 자동 진출합니다. 정확한 점수도 입력할 수 있습니다.</div>
             {work.structure.rounds.map((round, ri) => (
               <div className="rgroup" key={ri}>
-                <div className="rg-title">{roundName(round.length * 2)}</div>
+                <div className="rg-title">{work.structure.labels[ri]}</div>
                 {round.map(mid => {
                   const m = work.matches.find(x => x.id === mid)
-                  if (!m.teamA && !m.teamB) return null
-                  return <ResultCard key={mid} match={m} teams={teams} pointsToWin={data.settings.pointsToWin} onResult={onResult} />
+                  return <ResultCard key={mid} match={m} teams={teams} participants={participants} onResult={onResult} onPick={onPick} />
                 })}
               </div>
             ))}
@@ -182,44 +187,54 @@ export default function AdminView() {
       </section>
 
       <div className="editor-bracket">
-        <Bracket state={work} teams={teams} />
+        <Bracket state={work} teams={teams} participants={participants} />
       </div>
     </div>
   )
 }
 
-function ResultCard({ match, teams, pointsToWin, onResult }) {
-  const label = id => teams.find(t => t.id === id)?.label || '–'
+function ResultCard({ match, teams, participants, onResult, onPick }) {
+  const label = id => {
+    const t = teams.find(x => x.id === id)
+    if (!t) return '미정'
+    if (t.label?.trim()) return t.label.trim()
+    return t.playerIds.map(pid => participants.find(p => p.id === pid)?.name || '?').join(' · ')
+  }
   const init = match.games?.length ? match.games[0] : { a: '', b: '' }
   const [a, setA] = useState(init.a)
   const [b, setB] = useState(init.b)
   const ready = match.teamA && match.teamB
 
-  const pick = side => onResult(match.id, side === 'A' ? [{ a: pointsToWin, b: 0 }] : [{ a: 0, b: pointsToWin }])
-  const saveScore = () => {
+  // 점수 입력 → 자동 반영(별도 저장 버튼 없음). 두 값이 유효하고 서로 다르면 적용.
+  const applyScore = () => {
+    if (!ready) return
     const ga = Number(a), gb = Number(b)
-    if (!Number.isFinite(ga) || !Number.isFinite(gb) || ga === gb) return
+    if (a === '' || b === '' || !Number.isFinite(ga) || !Number.isFinite(gb) || ga === gb) return
     onResult(match.id, [{ a: ga, b: gb }])
   }
 
+  const head = ready ? '승자 선택 또는 점수 입력'
+    : (match.srcA?.match || match.srcB?.match) ? '이전 경기 결과 대기' : '상대 미정'
+
   return (
     <div className="gcard">
-      <div className="gc-head">{ready ? '승자 선택 또는 점수 입력' : '상대 미정'}</div>
+      <div className="gc-head">{head}</div>
       <div className="gc-row">
         <span className="gc-name">{label(match.teamA)}</span>
-        <input className="gc-score-in" value={a} onChange={e => setA(e.target.value)} disabled={!ready} />
+        <input className="gc-score-in" value={a} disabled={!ready}
+          onChange={e => setA(e.target.value)} onBlur={applyScore}
+          onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()} />
         <span className="muted">:</span>
-        <input className="gc-score-in" value={b} onChange={e => setB(e.target.value)} disabled={!ready} />
+        <input className="gc-score-in" value={b} disabled={!ready}
+          onChange={e => setB(e.target.value)} onBlur={applyScore}
+          onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()} />
         <span className="gc-name" style={{ textAlign: 'right' }}>{label(match.teamB)}</span>
       </div>
       {ready && (
-        <>
-          <div className="win-pick">
-            <button className={match.winner === match.teamA ? 'chosen' : ''} onClick={() => pick('A')}>◀ {label(match.teamA)} 승</button>
-            <button className={match.winner === match.teamB ? 'chosen' : ''} onClick={() => pick('B')}>{label(match.teamB)} 승 ▶</button>
-          </div>
-          <button className="btn" style={{ width: '100%', marginTop: 8 }} onClick={saveScore}>점수로 저장</button>
-        </>
+        <div className="win-pick">
+          <button className={match.winner === match.teamA ? 'chosen' : ''} onClick={() => onPick(match.id, match.teamA)}>◀ {label(match.teamA)} 승</button>
+          <button className={match.winner === match.teamB ? 'chosen' : ''} onClick={() => onPick(match.id, match.teamB)}>{label(match.teamB)} 승 ▶</button>
+        </div>
       )}
     </div>
   )
