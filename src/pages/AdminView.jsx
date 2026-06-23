@@ -33,6 +33,28 @@ function demoData() {
   }
 }
 
+let _tseq = 0
+const newTeamId = () => `t${Date.now().toString(36)}_${++_tseq}`
+
+// 기존 팀을 유지한 채 명단 변화만 반영 (삭제된 선수만 빼고, 새 선수만 채움). 전체 재페어링 X.
+function reconcileTeams(prev, active, matchType) {
+  const activeIds = new Set(active.map(p => p.id))
+  const tierOf = id => active.find(p => p.id === id)?.tier || 0
+  const cap = matchType === 'singles' ? 1 : 2
+  let next = prev
+    .map(t => ({ ...t, playerIds: t.playerIds.filter(id => activeIds.has(id)) }))
+    .filter(t => t.playerIds.length > 0)
+  const assigned = new Set(next.flatMap(t => t.playerIds))
+  for (const p of active) {
+    if (assigned.has(p.id)) continue
+    const open = next.find(t => t.playerIds.length < cap)
+    if (open) open.playerIds = [...open.playerIds, p.id]
+    else next = [...next, { id: newTeamId(), label: '', playerIds: [p.id] }]
+    assigned.add(p.id)
+  }
+  return next.map((t, i) => ({ ...t, no: i + 1, tierSum: t.playerIds.reduce((s, id) => s + tierOf(id), 0) }))
+}
+
 export default function AdminView() {
   const { id } = useParams()
   const [sp] = useSearchParams()
@@ -54,16 +76,18 @@ export default function AdminView() {
 
   // 참가자 '구성'이 바뀔 때만 팀 재구성 (인원 추가/삭제·종목·구성방식).
   // 이름/티어만 바뀐 경우(=ID 집합 동일)엔 재구성하지 않아 팀명·드래그 배치가 유지됨.
+  const cfgRef = useRef(null)
   const activeIdsKey = participants.filter(p => p.checkedIn).map(p => p.id).join(',')
   useEffect(() => {
     if (!data) return
     const active = participants.filter(p => p.checkedIn)
-    const fresh = pairTeams(active, { matchType: data.matchType, mode: data.pairingMode })
-    // 구성원이 동일한 팀은 기존 팀명을 유지 (한 팀 삭제 등으로 재구성돼도 팀명 보존)
-    setTeams(prev => fresh.map(nt => {
-      const old = prev.find(ot => ot.playerIds.length === nt.playerIds.length && ot.playerIds.every(id => nt.playerIds.includes(id)))
-      return old?.label ? { ...nt, label: old.label } : nt
-    }))
+    const cfg = `${data.matchType}|${data.pairingMode}`
+    const cfgChanged = cfgRef.current !== null && cfgRef.current !== cfg
+    cfgRef.current = cfg
+    // 종목/구성방식 변경(또는 최초) → 전체 재페어링. 그 외(선수 추가/삭제) → 기존 팀 유지하며 증분 반영.
+    setTeams(prev => (prev.length === 0 || cfgChanged)
+      ? pairTeams(active, { matchType: data.matchType, mode: data.pairingMode })
+      : reconcileTeams(prev, active, data.matchType))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeIdsKey, data?.matchType, data?.pairingMode])
 
