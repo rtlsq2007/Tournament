@@ -6,7 +6,7 @@ let _pid = 0
 const newPid = () => `p${Date.now().toString(36)}_${++_pid}`
 const mkP = name => ({ id: newPid(), name, tier: 3, gender: 'M', checkedIn: true })
 
-export default function ParticipantsTab({ participants, setParticipants, teams, setTeams, matchType, swapPlayers, swapTeams }) {
+export default function ParticipantsTab({ participants, setParticipants, teams, setTeams, matchType, swapPlayers, swapTeams, deletePlayer }) {
   const [sub, setSub] = useState('list')
   const [bulk, setBulk] = useState(participants.map(p => p.name).join('\n'))
   const step = matchType === 'singles' ? 1 : 2
@@ -18,8 +18,8 @@ export default function ParticipantsTab({ participants, setParticipants, teams, 
     return t?.label?.trim() || `${t?.no}팀`
   }
 
-  // 드래그 스왑: 선수(칩) / 팀(카드)
-  const playerSwap = useSwap({ attr: 'data-pid', onSwap: swapPlayers, labelOf: pName })
+  // 드래그 스왑: 선수(칩, 휴지통으로 삭제 가능) / 팀(카드)
+  const playerSwap = useSwap({ attr: 'data-pid', onSwap: swapPlayers, onDelete: deletePlayer, labelOf: pName })
   const teamSwap = useSwap({ attr: 'data-team', onSwap: swapTeams, labelOf: teamLabel })
 
   // 간단 입력(선수 명단): 타이핑하면 버튼 없이 바로 반영
@@ -32,8 +32,11 @@ export default function ParticipantsTab({ participants, setParticipants, teams, 
   const setCount = next => { setParticipants(next); setBulk(next.map(p => p.name).join('\n')) }
   const addStep = () => setCount([...participants, ...Array.from({ length: step }, (_, k) => mkP(`참가자${participants.length + k + 1}`))])
   const removeStep = () => setCount(participants.slice(0, Math.max(0, participants.length - step)))
-  // 셔플: 무작위로 팀 재편성(대진표·조정 반영). 명단(이름)은 그대로.
-  const shuffle = () => setTeams(pairTeams(participants.filter(p => p.checkedIn), { matchType, mode: 'random' }))
+  // 셔플: 무작위로 팀 재편성(대진표·조정 반영). 팀명은 자리(순서) 기준으로 유지.
+  const shuffle = () => setTeams(prev => {
+    const fresh = pairTeams(participants.filter(p => p.checkedIn), { matchType, mode: 'random' })
+    return fresh.map((t, i) => prev[i]?.label ? { ...t, label: prev[i].label } : t)
+  })
 
   const renameTeam = (id, label) => setTeams(teams.map(t => t.id === id ? { ...t, label } : t))
   const setTier = (pid, tier) => setParticipants(participants.map(p => p.id === pid ? { ...p, tier } : p))
@@ -78,9 +81,10 @@ export default function ParticipantsTab({ participants, setParticipants, teams, 
                     data-pid={pid} onPointerDown={e => playerSwap.begin(e, pid)}>
                     <span className="pc-grip">⠿</span>
                     <span className="pc-name">{pName(pid)}</span>
-                    <span className="pc-stars" onPointerDown={e => e.stopPropagation()}>
+                    <span className="pc-stars">
                       {[1, 2, 3, 4, 5].map(s => (
-                        <span key={s} className={`pc-star ${pTier(pid) >= s ? 'on' : ''}`} onClick={() => setTier(pid, s)}>★</span>
+                        <span key={s} className={`pc-star ${pTier(pid) >= s ? 'on' : ''}`}
+                          onPointerDown={e => { e.stopPropagation(); setTier(pid, s) }}>★</span>
                       ))}
                     </span>
                   </span>
@@ -94,6 +98,7 @@ export default function ParticipantsTab({ participants, setParticipants, teams, 
 
       {playerSwap.ghostEl}
       {teamSwap.ghostEl}
+      {playerSwap.trashEl}
     </div>
   )
 }

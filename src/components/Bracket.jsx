@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef, useState } from 'react'
 import { useSwap } from './admin/useSwap.jsx'
 
 // 우측 라이브 대진표. SVG 연결선 + 우승 자리 + 확대/축소. editable이면 선수 드래그 스왑.
-export default function Bracket({ state, teams, participants = [], highlightTeamIds = [], editable = false, swapPlayers, zoom = 1, teamMode = false }) {
+export default function Bracket({ state, teams, participants = [], highlightTeamIds = [], editable = false, swapPlayers, deletePlayer, zoom = 1, teamMode = false }) {
   const wrapRef = useRef(null)
   const champRef = useRef(null)
   const matchRefs = useRef(new Map())
@@ -10,6 +10,7 @@ export default function Bracket({ state, teams, participants = [], highlightTeam
   const swap = useSwap({
     attr: 'data-pid',
     onSwap: swapPlayers || (() => {}),
+    onDelete: deletePlayer,
     labelOf: id => participants.find(p => p.id === id)?.name || '?',
   })
 
@@ -102,12 +103,12 @@ export default function Bracket({ state, teams, participants = [], highlightTeam
       <div className="bracket" style={{ transform: `scale(${zoom})`, transformOrigin: 'top left' }}>
         {rounds.map((round, ri) => (
           <div className="bracket-round" key={ri}>
-            <div className="round-label">{labels[ri] || `${round.length * 2}강`}</div>
             <div className="matches">
-              {round.map(mid => {
+              {round.map((mid, mi) => {
                 const m = byId(mid)
                 return (
                   <div className="bmatch" key={mid} ref={el => { el ? matchRefs.current.set(mid, el) : matchRefs.current.delete(mid) }}>
+                    {mi === 0 && <div className="round-label round-label-float">{labels[ri] || `${round.length * 2}강`}</div>}
                     <Slot teamId={m.teamA} src={m.srcA} isWin={m.winner === m.teamA} score={scoreOf(m, 'a')} />
                     <Slot teamId={m.teamB} src={m.srcB} isWin={m.winner === m.teamB} score={scoreOf(m, 'b')} />
                   </div>
@@ -118,9 +119,9 @@ export default function Bracket({ state, teams, participants = [], highlightTeam
         ))}
         {/* 우승 자리 */}
         <div className="bracket-round">
-          <div className="round-label">🏆 우승</div>
           <div className="matches">
             <div className="bmatch" ref={champRef}>
+              <div className="round-label round-label-float">🏆 우승</div>
               <div className={`champ-box ${champTeam ? '' : 'waiting'}`}>
                 {champTeam ? (teamMode ? teamName(champTeam) : playerNames(champTeam)[0]) : '대기'}
               </div>
@@ -129,6 +130,7 @@ export default function Bracket({ state, teams, participants = [], highlightTeam
         </div>
       </div>
       {editable && swap.ghostEl}
+      {editable && swap.trashEl}
     </div>
   )
 }

@@ -186,12 +186,13 @@ body {
 .count-pill span { min-width:84px; text-align:center; font-weight:700; font-size:13px; }
 
 /* ===== 대진표 ===== */
-.bracket { display:inline-flex; gap:46px; align-items:stretch; min-width:max-content; }
+.bracket { display:inline-flex; gap:46px; align-items:stretch; min-width:max-content; padding-top:18px; }
 .bracket-round { display:flex; flex-direction:column; min-width:210px; }
 .round-label { align-self:flex-start; font-size:12px; font-weight:700; color:var(--text); background:var(--surface-2);
   border:1px solid var(--border-strong); padding:5px 12px; border-radius:var(--r-pill); margin-bottom:14px; }
 .bracket-round .matches { display:flex; flex-direction:column; justify-content:space-around; flex:1; }
-.bmatch { display:flex; flex-direction:column; gap:5px; margin:9px 0; }
+.bmatch { display:flex; flex-direction:column; gap:5px; margin:9px 0; position:relative; }
+.round-label-float { position:absolute; top:-34px; left:0; margin:0 !important; }
 .bteam { display:flex; align-items:center; justify-content:space-between; gap:10px; width:210px; background:var(--surface);
   border:1px solid var(--border); border-radius:9px; padding:9px 12px; font-size:14px; font-weight:500; transition:border-color .15s ease; }
 .bteam.win { border-color:var(--accent); background:var(--accent-weak); }
@@ -247,6 +248,12 @@ body {
 .pc-star { cursor:pointer; color:var(--border-strong); font-size:14px; line-height:1; transition:color .1s ease; }
 .pc-star:hover, .pc-star.on { color:var(--warn); }
 .bplayer.empty-slot { justify-content:center; border-style:dashed; color:var(--text-muted); font-weight:400; }
+
+/* 드래그 삭제 휴지통 존 */
+.drag-trash { position:fixed; bottom:28px; left:50%; transform:translateX(-50%); z-index:1001;
+  padding:14px 30px; border-radius:14px; border:2px dashed var(--danger); color:var(--danger);
+  background:rgba(248,113,113,.10); font-weight:800; font-size:15px; box-shadow:var(--shadow-md); }
+.drag-trash.over { background:var(--danger); color:#fff; border-style:solid; transform:translateX(-50%) scale(1.06); }
 /* 드래그 고스트 (커서 따라다님) */
 .drag-ghost { position:fixed; z-index:1000; pointer-events:none; padding:6px 10px; border-radius:var(--r-pill);
   background:var(--accent-strong); color:#fff; font-size:13px; font-weight:700; box-shadow:var(--shadow-md);

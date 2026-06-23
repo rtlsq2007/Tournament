@@ -107,6 +107,8 @@ export default function AdminView() {
     ;[arr[ia], arr[ib]] = [arr[ib], arr[ia]]
     return arr
   })
+  // 선수 완전 삭제 (명단에서 제거 → 팀 재구성)
+  const deletePlayer = id => setParticipants(prev => prev.filter(p => p.id !== id))
 
   if (error) return <div className="app"><div className="card"><h2 className="h2">⚠️ {error}</h2></div></div>
   if (!data || !work) return <div className="app"><div className="muted">불러오는 중…</div></div>
@@ -167,7 +169,7 @@ export default function AdminView() {
         {tab === 'players' && (
           <ParticipantsTab participants={participants} setParticipants={setParticipants}
             teams={teams} setTeams={setTeams} matchType={data.matchType}
-            swapPlayers={swapPlayers} swapTeams={swapTeams} />
+            swapPlayers={swapPlayers} swapTeams={swapTeams} deletePlayer={deletePlayer} />
         )}
 
         {tab === 'results' && (
@@ -210,7 +212,7 @@ export default function AdminView() {
             value={zoom} onChange={e => setZoom(Number(e.target.value))} />
           <span className="muted small" style={{ minWidth: 42, textAlign: 'right', fontWeight: 600 }}>{Math.round(zoom * 100)}%</span>
         </div>
-        <Bracket state={work} teams={teams} participants={participants} editable swapPlayers={swapPlayers} zoom={zoom} teamMode={data.matchType !== 'singles'} />
+        <Bracket state={work} teams={teams} participants={participants} editable swapPlayers={swapPlayers} deletePlayer={deletePlayer} zoom={zoom} teamMode={data.matchType !== 'singles'} />
       </div>
     </div>
   )
