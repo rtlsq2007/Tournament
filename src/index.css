@@ -215,3 +215,47 @@ body {
     grid-area:unset; border-right:none; border-top:1px solid var(--border); padding:6px 0; }
   .editor-panel { border-right:none; }
 }
+
+/* ===== 팀 단위 참가자 편집 (상세입력) ===== */
+.team-grid { display:flex; flex-direction:column; gap:10px; }
+.team-card { border:1px solid var(--border); border-radius:var(--r-ctrl); background:var(--surface-2); padding:10px 12px;
+  transition:border-color .15s ease, background .15s ease; }
+.team-card.drop-into { border-color:var(--accent); background:var(--accent-weak); }
+.team-card .tc-head { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+.tnum { width:24px; height:24px; flex:none; border-radius:7px; display:grid; place-items:center; font-size:12px; font-weight:700;
+  background:var(--accent-strong); color:#fff; }
+.team-name-in { flex:1; background:transparent; border:none; border-bottom:1px dashed transparent; color:var(--text);
+  font-weight:700; font-size:14px; padding:2px 0; outline:none; }
+.team-name-in:hover { border-bottom-color:var(--border-strong); }
+.team-name-in:focus { border-bottom-color:var(--accent); }
+.tc-sum { font-size:11px; color:var(--text-muted); font-weight:600; }
+.tc-members { display:flex; flex-wrap:wrap; gap:6px; }
+.pchip { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:var(--r-pill);
+  background:var(--surface); border:1px solid var(--border-strong); font-size:13px; font-weight:600;
+  cursor:grab; user-select:none; touch-action:none; transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease, opacity .12s ease; }
+.pchip:hover { border-color:var(--accent); }
+.pchip:active { cursor:grabbing; }
+.pchip.dragging { opacity:.35; }
+.pchip.swap-target { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-weak); transform:scale(1.05); }
+.pchip .pc-grip { color:var(--text-muted); font-size:12px; line-height:1; }
+.pchip .pc-tier { font-size:10px; color:var(--warn); }
+/* 드래그 고스트 (커서 따라다님) */
+.drag-ghost { position:fixed; z-index:1000; pointer-events:none; padding:6px 10px; border-radius:var(--r-pill);
+  background:var(--accent-strong); color:#fff; font-size:13px; font-weight:700; box-shadow:var(--shadow-md);
+  transform:translate(-50%,-50%) scale(1.04); }
+
+.bye-note { font-size:11px; color:var(--warn); font-weight:600; margin-left:auto; }
+
+/* ===== 경기결과 - 승자 선택 ===== */
+.win-pick { display:flex; gap:8px; margin-top:10px; }
+.win-pick button { flex:1; padding:9px; border-radius:8px; border:1px solid var(--border-strong); background:var(--surface);
+  color:var(--text); font-weight:700; font-size:13px; transition:all .12s ease; }
+.win-pick button:hover:not(:disabled) { border-color:var(--accent); }
+.win-pick button.chosen { background:var(--accent-strong); border-color:var(--accent-strong); color:#fff; }
+.win-pick button:disabled { opacity:.4; cursor:not-allowed; }
+
+/* ===== 대진표 연결선 (SVG 오버레이) ===== */
+.bracket-wrap { position:relative; display:inline-block; }
+.bracket-svg { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; overflow:visible; z-index:0; }
+.bracket { position:relative; z-index:1; }
+.bteam.bye { border-style:dashed; color:var(--text-muted); }
