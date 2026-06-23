@@ -221,6 +221,9 @@ body {
 .team-card { border:1px solid var(--border); border-radius:var(--r-ctrl); background:var(--surface-2); padding:10px 12px;
   transition:border-color .15s ease, background .15s ease; }
 .team-card.drop-into { border-color:var(--accent); background:var(--accent-weak); }
+.team-card.dragging { opacity:.4; }
+.drag-handle { cursor:grab; touch-action:none; user-select:none; }
+.drag-handle:active { cursor:grabbing; }
 .team-card .tc-head { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
 .tnum { width:24px; height:24px; flex:none; border-radius:7px; display:grid; place-items:center; font-size:12px; font-weight:700;
   background:var(--accent-strong); color:#fff; }
@@ -266,3 +269,8 @@ body {
 .bteam-team { display:flex; flex-direction:column; gap:3px; min-width:0; }
 .bteam-head { font-size:10px; font-weight:700; letter-spacing:.02em; color:var(--accent); text-transform:uppercase; }
 .bteam.win .bteam-head { color:var(--accent); }
+.bteam-drag { cursor:grab; touch-action:none; border-radius:5px; padding:1px 4px; margin:-1px -4px; transition:background .12s ease, box-shadow .12s ease; }
+.bteam-drag:hover { background:var(--accent-weak); }
+.bteam-drag:active { cursor:grabbing; }
+.bteam-player.dragging { opacity:.35; }
+.bteam-player.swap-target { background:var(--accent-weak); box-shadow:0 0 0 2px var(--accent); }

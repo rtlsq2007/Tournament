@@ -1,80 +1,45 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState } from 'react'
+import { useSwap } from './useSwap.jsx'
 import { pairTeams } from '../../lib/balancer.js'
 
 let _pid = 0
 const newPid = () => `p${Date.now().toString(36)}_${++_pid}`
+const mkP = name => ({ id: newPid(), name, tier: 3, gender: 'M', checkedIn: true })
 
-export default function ParticipantsTab({ participants, setParticipants, teams, setTeams, matchType }) {
-  const [sub, setSub] = useState('simple')
+export default function ParticipantsTab({ participants, setParticipants, teams, setTeams, matchType, swapPlayers, swapTeams }) {
+  const [sub, setSub] = useState('list')
   const [bulk, setBulk] = useState(participants.map(p => p.name).join('\n'))
   const step = matchType === 'singles' ? 1 : 2
 
-  // 인원 ±/셔플/적용 등으로 명단이 바뀌면 간단입력 textarea도 동기화 (버그 수정)
-  useEffect(() => { setBulk(participants.map(p => p.name).join('\n')) }, [participants])
-
   const pName = id => participants.find(p => p.id === id)?.name || '?'
   const pTier = id => participants.find(p => p.id === id)?.tier || 0
-
-  // ---- 인원/명단 (participants) ----
-  const addStep = () => {
-    const add = Array.from({ length: step }, (_, k) =>
-      ({ id: newPid(), name: `참가자${participants.length + k + 1}`, tier: 3, gender: 'M', checkedIn: true }))
-    setParticipants([...participants, ...add])
+  const teamLabel = id => {
+    const i = teams.findIndex(t => t.id === id)
+    return teams[i]?.label?.trim() || `${i + 1}팀`
   }
-  const removeStep = () => setParticipants(participants.slice(0, Math.max(0, participants.length - step)))
-  // 셔플: 선수를 무작위로 재편성(팀·대진표 반영). 간단입력 명단은 그대로(이름은 안 바뀌므로).
+
+  // 드래그 스왑: 선수(칩) / 팀(카드)
+  const playerSwap = useSwap({ attr: 'data-pid', onSwap: swapPlayers, labelOf: pName })
+  const teamSwap = useSwap({ attr: 'data-team', onSwap: swapTeams, labelOf: teamLabel })
+
+  // 간단 입력(선수 명단): 타이핑하면 버튼 없이 바로 반영
+  const onBulk = v => {
+    setBulk(v)
+    const names = v.split('\n').map(s => s.trim()).filter(Boolean)
+    setParticipants(names.map(name => participants.find(p => p.name === name) || mkP(name)))
+  }
+  const setCount = next => { setParticipants(next); setBulk(next.map(p => p.name).join('\n')) }
+  const addStep = () => setCount([...participants, ...Array.from({ length: step }, (_, k) => mkP(`참가자${participants.length + k + 1}`))])
+  const removeStep = () => setCount(participants.slice(0, Math.max(0, participants.length - step)))
+  // 셔플: 무작위로 팀 재편성(대진표·조정 반영). 명단(이름)은 그대로.
   const shuffle = () => setTeams(pairTeams(participants.filter(p => p.checkedIn), { matchType, mode: 'random' }))
-  const applyBulk = () => {
-    const names = bulk.split('\n').map(s => s.trim()).filter(Boolean)
-    setParticipants(names.map(name => participants.find(p => p.name === name)
-      || { id: newPid(), name, tier: 3, gender: 'M', checkedIn: true }))
-  }
 
-  // ---- 팀 편집 (teams): 이름 변경 + 홀드 드래그 스왑 ----
   const renameTeam = (id, label) => setTeams(teams.map(t => t.id === id ? { ...t, label } : t))
-
-  const dragRef = useRef(null)
-  const targetRef = useRef(null)
-  const [ghost, setGhost] = useState(null)
-  const [targetId, setTargetId] = useState(null)
-
-  const moveDrag = e => {
-    setGhost(g => g ? { ...g, x: e.clientX, y: e.clientY } : g)
-    const chip = document.elementFromPoint(e.clientX, e.clientY)?.closest('.pchip')
-    const pid = chip?.getAttribute('data-pid') || null
-    const t = (pid && pid !== dragRef.current) ? pid : null
-    targetRef.current = t
-    setTargetId(t)
-  }
-  const endDrag = () => {
-    window.removeEventListener('pointermove', moveDrag)
-    window.removeEventListener('pointerup', endDrag)
-    const from = dragRef.current, to = targetRef.current
-    dragRef.current = null; targetRef.current = null
-    setGhost(null); setTargetId(null)
-    if (from && to) swapPlayers(from, to)
-  }
-  const beginDrag = (e, playerId) => {
-    e.preventDefault()
-    dragRef.current = playerId
-    targetRef.current = null
-    setTargetId(null)
-    setGhost({ name: pName(playerId), x: e.clientX, y: e.clientY })
-    window.addEventListener('pointermove', moveDrag)
-    window.addEventListener('pointerup', endDrag)
-  }
-  const swapPlayers = (a, b) => {
-    setTeams(teams.map(t => {
-      if (!t.playerIds.includes(a) && !t.playerIds.includes(b)) return t
-      const ids = t.playerIds.map(id => id === a ? b : id === b ? a : id)
-      return { ...t, playerIds: ids, tierSum: ids.reduce((s, id) => s + pTier(id), 0) }
-    }))
-  }
 
   return (
     <div>
       <div className="panel-title">참가자 등록</div>
-      <div className="panel-hint">간단 입력으로 명단을 넣고, 상세 입력에서 팀을 조정하세요. 칩을 꾹 눌러 다른 선수와 자리를 바꿀 수 있습니다.</div>
+      <div className="panel-hint">명단을 줄단위로 입력하면 자동 반영됩니다. ‘선수 조정’에서 칩/팀을 꾹 눌러 자리를 바꿀 수 있습니다.</div>
 
       <div className="row-between" style={{ marginBottom: 14 }}>
         <div className="count-pill">
@@ -86,33 +51,30 @@ export default function ParticipantsTab({ participants, setParticipants, teams, 
       </div>
 
       <div className="subtabs">
-        <button className={sub === 'simple' ? 'active' : ''} onClick={() => setSub('simple')}>간단 입력</button>
-        <button className={sub === 'detail' ? 'active' : ''} onClick={() => setSub('detail')}>상세 입력</button>
+        <button className={sub === 'list' ? 'active' : ''} onClick={() => setSub('list')}>선수 명단</button>
+        <button className={sub === 'adjust' ? 'active' : ''} onClick={() => setSub('adjust')}>선수 조정</button>
       </div>
 
-      {sub === 'simple' ? (
-        <div>
-          <textarea className="input" rows={10} value={bulk} onChange={e => setBulk(e.target.value)}
-            placeholder={'이름을 한 줄에 한 명씩\nPlayer1\nPlayer2 ...'} />
-          <button className="btn btn-primary" style={{ marginTop: 10, width: '100%' }} onClick={applyBulk}>
-            명단 적용 ({bulk.split('\n').filter(s => s.trim()).length}명)
-          </button>
-        </div>
+      {sub === 'list' ? (
+        <textarea className="input" rows={11} value={bulk} onChange={e => onBulk(e.target.value)}
+          placeholder={'이름을 한 줄에 한 명씩 (자동 반영)\n선수1\n선수2 ...'} />
       ) : (
         <div className="team-grid">
           {teams.map((t, i) => (
-            <div className={`team-card ${targetId && t.playerIds.includes(targetId) ? 'drop-into' : ''}`} key={t.id}>
+            <div className={`team-card ${teamSwap.dragId === t.id ? 'dragging' : ''} ${teamSwap.targetId === t.id ? 'drop-into' : ''}`}
+              key={t.id} data-team={t.id}>
               <div className="tc-head">
-                <span className="tnum">{i + 1}</span>
+                <span className="tnum drag-handle" title="팀 위치 바꾸기 (꾹 눌러 드래그)"
+                  onPointerDown={e => teamSwap.begin(e, t.id)}>{i + 1}</span>
                 <input className="team-name-in" value={t.label}
                   onChange={e => renameTeam(t.id, e.target.value)} placeholder={`${i + 1}팀`} />
                 {step === 2 && <span className="tc-sum">전력 {t.tierSum}</span>}
               </div>
               <div className="tc-members">
-                {t.playerIds.map(pidv => (
-                  <span key={pidv} className={`pchip ${dragRef.current === pidv ? 'dragging' : ''} ${targetId === pidv ? 'swap-target' : ''}`}
-                    data-pid={pidv} onPointerDown={e => beginDrag(e, pidv)}>
-                    <span className="pc-grip">⠿</span>{pName(pidv)}<span className="pc-tier">★{pTier(pidv)}</span>
+                {t.playerIds.map(pid => (
+                  <span key={pid} className={`pchip ${playerSwap.dragId === pid ? 'dragging' : ''} ${playerSwap.targetId === pid ? 'swap-target' : ''}`}
+                    data-pid={pid} onPointerDown={e => playerSwap.begin(e, pid)}>
+                    <span className="pc-grip">⠿</span>{pName(pid)}<span className="pc-tier">★{pTier(pid)}</span>
                   </span>
                 ))}
               </div>
@@ -122,7 +84,8 @@ export default function ParticipantsTab({ participants, setParticipants, teams, 
         </div>
       )}
 
-      {ghost && <div className="drag-ghost" style={{ left: ghost.x, top: ghost.y }}>{ghost.name}</div>}
+      {playerSwap.ghostEl}
+      {teamSwap.ghostEl}
     </div>
   )
 }

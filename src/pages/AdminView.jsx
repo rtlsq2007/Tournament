@@ -8,7 +8,7 @@ import Bracket from '../components/Bracket.jsx'
 import ParticipantsTab from '../components/admin/ParticipantsTab.jsx'
 
 const TABS = [
-  { key: 'info', label: '기본정보', ico: '⚙️' },
+  { key: 'info', label: '경기정보', ico: '⚙️' },
   { key: 'players', label: '참가자', ico: '👥' },
   { key: 'results', label: '경기결과', ico: '📋' },
   { key: 'share', label: '공유', ico: '🔗' },
@@ -84,6 +84,22 @@ export default function AdminView() {
     })
   }
 
+  const pTier = id => participants.find(p => p.id === id)?.tier || 0
+  // 선수 스왑(다른 팀과 자리 교체) — 참가자 탭/대진표 공용
+  const swapPlayers = (a, b) => setTeams(prev => prev.map(t => {
+    if (!t.playerIds.includes(a) && !t.playerIds.includes(b)) return t
+    const ids = t.playerIds.map(id => id === a ? b : id === b ? a : id)
+    return { ...t, playerIds: ids, tierSum: ids.reduce((s, id) => s + pTier(id), 0) }
+  }))
+  // 팀 위치 스왑(대진 상대 바꾸기)
+  const swapTeams = (a, b) => setTeams(prev => {
+    const arr = [...prev]
+    const ia = arr.findIndex(t => t.id === a), ib = arr.findIndex(t => t.id === b)
+    if (ia < 0 || ib < 0) return prev
+    ;[arr[ia], arr[ib]] = [arr[ib], arr[ia]]
+    return arr
+  })
+
   if (error) return <div className="app"><div className="card"><h2 className="h2">⚠️ {error}</h2></div></div>
   if (!data || !work) return <div className="app"><div className="muted">불러오는 중…</div></div>
 
@@ -114,7 +130,7 @@ export default function AdminView() {
       <section className="editor-panel">
         {tab === 'info' && (
           <div>
-            <div className="panel-title">기본 정보</div>
+            <div className="panel-title">경기 정보</div>
             <div className="panel-hint">대회 방식과 규칙을 설정합니다. 변경하면 대진표가 새로 구성됩니다.</div>
             <div className="field"><label>대회명</label>
               <input className="input" value={data.name} onChange={e => setData({ ...data, name: e.target.value })} /></div>
@@ -142,7 +158,8 @@ export default function AdminView() {
 
         {tab === 'players' && (
           <ParticipantsTab participants={participants} setParticipants={setParticipants}
-            teams={teams} setTeams={setTeams} matchType={data.matchType} />
+            teams={teams} setTeams={setTeams} matchType={data.matchType}
+            swapPlayers={swapPlayers} swapTeams={swapTeams} />
         )}
 
         {tab === 'results' && (
@@ -179,7 +196,7 @@ export default function AdminView() {
       </section>
 
       <div className="editor-bracket">
-        <Bracket state={work} teams={teams} participants={participants} />
+        <Bracket state={work} teams={teams} participants={participants} editable swapPlayers={swapPlayers} />
       </div>
     </div>
   )
@@ -189,8 +206,8 @@ function ResultCard({ match, teams, participants, onResult, onPick }) {
   const label = id => {
     const t = teams.find(x => x.id === id)
     if (!t) return '미정'
-    if (t.label?.trim()) return t.label.trim()
-    return t.playerIds.map(pid => participants.find(p => p.id === pid)?.name || '?').join(' · ')
+    if (t.playerIds.length > 1) return t.label?.trim() || `${teams.findIndex(x => x.id === id) + 1}팀` // 복식: 팀명
+    return participants.find(p => p.id === t.playerIds[0])?.name || '?' // 단식: 선수명
   }
   const [a, setA] = useState('')
   const [b, setB] = useState('')

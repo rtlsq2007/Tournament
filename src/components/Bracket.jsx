@@ -1,10 +1,16 @@
 import { useLayoutEffect, useRef, useState } from 'react'
+import { useSwap } from './admin/useSwap.jsx'
 
-// 우측 라이브 대진표. 읽기 전용 + SVG 연결선(소스 기반).
-export default function Bracket({ state, teams, participants = [], highlightTeamIds = [] }) {
+// 우측 라이브 대진표. SVG 연결선(소스 기반). editable일 때 선수 드래그 스왑.
+export default function Bracket({ state, teams, participants = [], highlightTeamIds = [], editable = false, swapPlayers }) {
   const wrapRef = useRef(null)
   const matchRefs = useRef(new Map())
   const [paths, setPaths] = useState([])
+  const swap = useSwap({
+    attr: 'data-pid',
+    onSwap: swapPlayers || (() => {}),
+    labelOf: id => participants.find(p => p.id === id)?.name || '?',
+  })
 
   const rounds = state?.structure?.rounds || []
   const labels = state?.structure?.labels || []
@@ -40,6 +46,8 @@ export default function Bracket({ state, teams, participants = [], highlightTeam
 
   const byId = id => state.matches.find(m => m.id === id)
   const teamById = id => teams.find(t => t.id === id)
+  const teamNo = id => teams.findIndex(t => t.id === id) + 1
+  const playerNames = team => team.playerIds.map(pid => participants.find(p => p.id === pid)?.name || '?')
   const scoreOf = (m, side) => {
     if (!m.games?.length) return ''
     const other = side === 'a' ? 'b' : 'a'
@@ -47,28 +55,26 @@ export default function Bracket({ state, teams, participants = [], highlightTeam
     return m.games.reduce((s, g) => s + (g[side] > g[other] ? 1 : 0), 0)
   }
 
-  const teamNo = id => teams.findIndex(t => t.id === id) + 1
-  const playerNames = team => team.playerIds.map(pid => participants.find(p => p.id === pid)?.name || '?')
+  const Name = ({ pid, n }) => (
+    <span className={`bteam-player ${editable ? 'bteam-drag' : ''} ${swap.dragId === pid ? 'dragging' : ''} ${swap.targetId === pid ? 'swap-target' : ''}`}
+      {...(editable ? { 'data-pid': pid, onPointerDown: e => swap.begin(e, pid) } : {})}>{n}</span>
+  )
 
   const Slot = ({ teamId, src, isWin, score }) => {
     const team = teamId ? teamById(teamId) : null
-    const waiting = !teamId && src?.match // 이전 경기 승자를 기다리는 중
+    const waiting = !teamId && src?.match
     const cls = `bteam ${team ? '' : 'empty'} ${isWin ? 'win' : ''} ${highlightTeamIds.includes(teamId) ? 'win' : ''}`
-    if (!team) {
-      return <div className={cls}><span className="bteam-player muted">{waiting ? '승자 진출 대기' : ''}</span></div>
-    }
+    if (!team) return <div className={cls}><span className="bteam-player muted">{waiting ? '승자 진출 대기' : ''}</span></div>
     const names = playerNames(team)
-    const isDoubles = names.length > 1
-    const header = team.label?.trim() || `${teamNo(teamId)}팀`
     return (
       <div className={cls}>
-        {isDoubles ? (
+        {names.length > 1 ? (
           <div className="bteam-team">
-            <div className="bteam-head">{header}</div>
-            <div className="bteam-names">{names.map((n, i) => <span key={i} className="bteam-player">{n}</span>)}</div>
+            <div className="bteam-head">{team.label?.trim() || `${teamNo(teamId)}팀`}</div>
+            <div className="bteam-names">{names.map((n, i) => <Name key={i} pid={team.playerIds[i]} n={n} />)}</div>
           </div>
         ) : (
-          <span className="bteam-names"><span className="bteam-player">{names[0]}</span></span>
+          <span className="bteam-names"><Name pid={team.playerIds[0]} n={names[0]} /></span>
         )}
         {score !== '' && score != null && <span className="bscore">{score}</span>}
       </div>
@@ -99,6 +105,7 @@ export default function Bracket({ state, teams, participants = [], highlightTeam
           </div>
         ))}
       </div>
+      {editable && swap.ghostEl}
     </div>
   )
 }
