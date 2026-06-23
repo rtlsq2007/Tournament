@@ -2,7 +2,8 @@ name = "badminton-tournament"
 compatibility_date = "2024-12-01"
 pages_build_output_dir = "dist"
 
-[[d1_databases]]
-binding = "DB"
-database_name = "tournament-db"
-database_id = "PLACEHOLDER_FILL_AFTER_CREATE"
+# D1은 데이터베이스 생성 후 다시 활성화합니다 (지금은 데모가 백엔드 없이 동작).
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "tournament-db"
+# database_id = "<wrangler d1 create 후 채우기>"
