@@ -36,6 +36,7 @@ export default function ParticipantsTab({ participants, setParticipants, teams, 
   const shuffle = () => setTeams(pairTeams(participants.filter(p => p.checkedIn), { matchType, mode: 'random' }))
 
   const renameTeam = (id, label) => setTeams(teams.map(t => t.id === id ? { ...t, label } : t))
+  const setTier = (pid, tier) => setParticipants(participants.map(p => p.id === pid ? { ...p, tier } : p))
 
   return (
     <div>
@@ -69,13 +70,19 @@ export default function ParticipantsTab({ participants, setParticipants, teams, 
                 <span className="tnum">{t.no}</span>
                 <input className="team-name-in" value={t.label}
                   onChange={e => renameTeam(t.id, e.target.value)} placeholder={`${t.no}팀`} />
-                {step === 2 && <span className="tc-sum">전력 {t.tierSum}</span>}
+                {step === 2 && <span className="tc-sum">전력 {t.playerIds.reduce((s, pid) => s + pTier(pid), 0)}</span>}
               </div>
               <div className="tc-members">
                 {t.playerIds.map(pid => (
                   <span key={pid} className={`pchip ${playerSwap.dragId === pid ? 'dragging' : ''} ${playerSwap.targetId === pid ? 'swap-target' : ''}`}
                     data-pid={pid} onPointerDown={e => playerSwap.begin(e, pid)}>
-                    <span className="pc-grip">⠿</span>{pName(pid)}<span className="pc-tier">★{pTier(pid)}</span>
+                    <span className="pc-grip">⠿</span>
+                    <span className="pc-name">{pName(pid)}</span>
+                    <span className="pc-stars" onPointerDown={e => e.stopPropagation()}>
+                      {[1, 2, 3, 4, 5].map(s => (
+                        <span key={s} className={`pc-star ${pTier(pid) >= s ? 'on' : ''}`} onClick={() => setTier(pid, s)}>★</span>
+                      ))}
+                    </span>
                   </span>
                 ))}
               </div>

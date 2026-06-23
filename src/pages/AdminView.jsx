@@ -58,7 +58,12 @@ export default function AdminView() {
   useEffect(() => {
     if (!data) return
     const active = participants.filter(p => p.checkedIn)
-    setTeams(pairTeams(active, { matchType: data.matchType, mode: data.pairingMode }))
+    const fresh = pairTeams(active, { matchType: data.matchType, mode: data.pairingMode })
+    // 구성원이 동일한 팀은 기존 팀명을 유지 (한 팀 삭제 등으로 재구성돼도 팀명 보존)
+    setTeams(prev => fresh.map(nt => {
+      const old = prev.find(ot => ot.playerIds.length === nt.playerIds.length && ot.playerIds.every(id => nt.playerIds.includes(id)))
+      return old?.label ? { ...nt, label: old.label } : nt
+    }))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeIdsKey, data?.matchType, data?.pairingMode])
 
@@ -205,7 +210,7 @@ export default function AdminView() {
             value={zoom} onChange={e => setZoom(Number(e.target.value))} />
           <span className="muted small" style={{ minWidth: 42, textAlign: 'right', fontWeight: 600 }}>{Math.round(zoom * 100)}%</span>
         </div>
-        <Bracket state={work} teams={teams} participants={participants} editable swapPlayers={swapPlayers} zoom={zoom} />
+        <Bracket state={work} teams={teams} participants={participants} editable swapPlayers={swapPlayers} zoom={zoom} teamMode={data.matchType !== 'singles'} />
       </div>
     </div>
   )

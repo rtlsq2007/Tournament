@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef, useState } from 'react'
 import { useSwap } from './admin/useSwap.jsx'
 
 // 우측 라이브 대진표. SVG 연결선 + 우승 자리 + 확대/축소. editable이면 선수 드래그 스왑.
-export default function Bracket({ state, teams, participants = [], highlightTeamIds = [], editable = false, swapPlayers, zoom = 1 }) {
+export default function Bracket({ state, teams, participants = [], highlightTeamIds = [], editable = false, swapPlayers, zoom = 1, teamMode = false }) {
   const wrapRef = useRef(null)
   const champRef = useRef(null)
   const matchRefs = useRef(new Map())
@@ -67,7 +67,7 @@ export default function Bracket({ state, teams, participants = [], highlightTeam
     if (!team) return <div className={`bteam empty ${isWin ? 'win' : ''}`}><span className="bteam-player muted">{waiting ? '승자 진출 대기' : ''}</span></div>
     const names = playerNames(team)
     const ids = team.playerIds
-    if (names.length > 1) {
+    if (teamMode) { // 복식/혼복: 1인 팀이어도 팀 헤더 + 선수 박스
       return (
         <div className={`bteam doubles ${isWin ? 'win' : ''} ${hi ? 'win' : ''}`}>
           <div className="bteam-head-row">
@@ -80,6 +80,7 @@ export default function Bracket({ state, teams, participants = [], highlightTeam
               {pTier(ids[i]) ? <span className="bp-tier">★{pTier(ids[i])}</span> : null}
             </div>
           ))}
+          {names.length < 2 && <div className="bplayer empty-slot">빈 자리</div>}
         </div>
       )
     }
@@ -121,7 +122,7 @@ export default function Bracket({ state, teams, participants = [], highlightTeam
           <div className="matches">
             <div className="bmatch" ref={champRef}>
               <div className={`champ-box ${champTeam ? '' : 'waiting'}`}>
-                {champTeam ? (champTeam.playerIds.length > 1 ? teamName(champTeam) : playerNames(champTeam)[0]) : '대기'}
+                {champTeam ? (teamMode ? teamName(champTeam) : playerNames(champTeam)[0]) : '대기'}
               </div>
             </div>
           </div>
