@@ -1,9 +1,10 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import { useSwap } from './admin/useSwap.jsx'
 
-// 우측 라이브 대진표. SVG 연결선(소스 기반). editable일 때 선수 드래그 스왑.
-export default function Bracket({ state, teams, participants = [], highlightTeamIds = [], editable = false, swapPlayers }) {
+// 우측 라이브 대진표. SVG 연결선 + 우승 자리 + 확대/축소. editable이면 선수 드래그 스왑.
+export default function Bracket({ state, teams, participants = [], highlightTeamIds = [], editable = false, swapPlayers, zoom = 1 }) {
   const wrapRef = useRef(null)
+  const champRef = useRef(null)
   const matchRefs = useRef(new Map())
   const [paths, setPaths] = useState([])
   const swap = useSwap({
@@ -14,31 +15,30 @@ export default function Bracket({ state, teams, participants = [], highlightTeam
 
   const rounds = state?.structure?.rounds || []
   const labels = state?.structure?.labels || []
+  const finalId = rounds.at(-1)?.[0]
 
   useLayoutEffect(() => {
     const wrap = wrapRef.current
     if (!wrap || !state?.matches?.length) { setPaths([]); return }
     const wr = wrap.getBoundingClientRect()
+    const rel = el => { const r = el.getBoundingClientRect(); return { l: r.left - wr.left, r: r.right - wr.left, m: r.top - wr.top + r.height / 2 } }
     const segs = []
+    const elbow = (f, c) => `M ${f.r} ${f.m} H ${f.r + (c.l - f.r) / 2} V ${c.m} H ${c.l}`
     for (const m of state.matches) {
       const childEl = matchRefs.current.get(m.id)
       if (!childEl) continue
-      const cr = childEl.getBoundingClientRect()
-      const cx = cr.left - wr.left
-      const cy = cr.top - wr.top + cr.height / 2
+      const c = rel(childEl)
       for (const src of [m.srcA, m.srcB]) {
-        if (!src?.match) continue
-        const fEl = matchRefs.current.get(src.match)
-        if (!fEl) continue
-        const fr = fEl.getBoundingClientRect()
-        const fx = fr.right - wr.left
-        const fy = fr.top - wr.top + fr.height / 2
-        const midX = fx + (cx - fx) / 2
-        segs.push(`M ${fx} ${fy} H ${midX} V ${cy} H ${cx}`)
+        const fEl = src?.match && matchRefs.current.get(src.match)
+        if (fEl) segs.push(elbow(rel(fEl), c))
       }
     }
+    // 결승 → 우승 연결
+    if (champRef.current && finalId && matchRefs.current.get(finalId)) {
+      segs.push(elbow(rel(matchRefs.current.get(finalId)), rel(champRef.current)))
+    }
     setPaths(segs)
-  }, [state, teams, participants])
+  }, [state, teams, participants, zoom])
 
   if (!rounds.length) {
     return <div className="muted">참가자를 추가하면 대진표가 생성됩니다.</div>
@@ -47,6 +47,7 @@ export default function Bracket({ state, teams, participants = [], highlightTeam
   const byId = id => state.matches.find(m => m.id === id)
   const teamById = id => teams.find(t => t.id === id)
   const teamNo = id => teams.findIndex(t => t.id === id) + 1
+  const teamName = team => team.label?.trim() || `${teamNo(team.id)}팀`
   const playerNames = team => team.playerIds.map(pid => participants.find(p => p.id === pid)?.name || '?')
   const scoreOf = (m, side) => {
     if (!m.games?.length) return ''
@@ -55,38 +56,43 @@ export default function Bracket({ state, teams, participants = [], highlightTeam
     return m.games.reduce((s, g) => s + (g[side] > g[other] ? 1 : 0), 0)
   }
 
-  const Name = ({ pid, n }) => (
-    <span className={`bteam-player ${editable ? 'bteam-drag' : ''} ${swap.dragId === pid ? 'dragging' : ''} ${swap.targetId === pid ? 'swap-target' : ''}`}
-      {...(editable ? { 'data-pid': pid, onPointerDown: e => swap.begin(e, pid) } : {})}>{n}</span>
-  )
+  const dragProps = pid => editable ? { 'data-pid': pid, onPointerDown: e => swap.begin(e, pid) } : {}
+  const playerCls = pid => `${editable ? 'bdrag' : ''} ${swap.dragId === pid ? 'dragging' : ''} ${swap.targetId === pid ? 'swap-target' : ''}`
 
   const Slot = ({ teamId, src, isWin, score }) => {
     const team = teamId ? teamById(teamId) : null
     const waiting = !teamId && src?.match
-    const cls = `bteam ${team ? '' : 'empty'} ${isWin ? 'win' : ''} ${highlightTeamIds.includes(teamId) ? 'win' : ''}`
-    if (!team) return <div className={cls}><span className="bteam-player muted">{waiting ? '승자 진출 대기' : ''}</span></div>
+    const hi = highlightTeamIds.includes(teamId)
+    if (!team) return <div className={`bteam empty ${isWin ? 'win' : ''}`}><span className="bteam-player muted">{waiting ? '승자 진출 대기' : ''}</span></div>
     const names = playerNames(team)
-    return (
-      <div className={cls}>
-        {names.length > 1 ? (
-          <div className="bteam-team">
-            <div className="bteam-head">{team.label?.trim() || `${teamNo(teamId)}팀`}</div>
-            <div className="bteam-names">{names.map((n, i) => <Name key={i} pid={team.playerIds[i]} n={n} />)}</div>
+    const ids = team.playerIds
+    if (names.length > 1) {
+      return (
+        <div className={`bteam doubles ${isWin ? 'win' : ''} ${hi ? 'win' : ''}`}>
+          <div className="bteam-head-row">
+            <span className="bteam-head">{teamName(team)}</span>
+            {score !== '' && score != null && <span className="bscore">{score}</span>}
           </div>
-        ) : (
-          <span className="bteam-names"><Name pid={team.playerIds[0]} n={names[0]} /></span>
-        )}
+          {names.map((n, i) => <div key={i} className={`bplayer ${playerCls(ids[i])}`} {...dragProps(ids[i])}>{n}</div>)}
+        </div>
+      )
+    }
+    return (
+      <div className={`bteam ${isWin ? 'win' : ''} ${hi ? 'win' : ''} ${playerCls(ids[0])}`} {...dragProps(ids[0])}>
+        <span className="bteam-player">{names[0]}</span>
         {score !== '' && score != null && <span className="bscore">{score}</span>}
       </div>
     )
   }
+
+  const champTeam = finalId ? teamById(byId(finalId).winner) : null
 
   return (
     <div className="bracket-wrap" ref={wrapRef}>
       <svg className="bracket-svg">
         {paths.map((d, i) => <path key={i} d={d} fill="none" stroke="var(--border-strong)" strokeWidth="2" />)}
       </svg>
-      <div className="bracket">
+      <div className="bracket" style={{ transform: `scale(${zoom})`, transformOrigin: 'top left' }}>
         {rounds.map((round, ri) => (
           <div className="bracket-round" key={ri}>
             <div className="round-label">{labels[ri] || `${round.length * 2}강`}</div>
@@ -94,8 +100,7 @@ export default function Bracket({ state, teams, participants = [], highlightTeam
               {round.map(mid => {
                 const m = byId(mid)
                 return (
-                  <div className="bmatch" key={mid}
-                    ref={el => { el ? matchRefs.current.set(mid, el) : matchRefs.current.delete(mid) }}>
+                  <div className="bmatch" key={mid} ref={el => { el ? matchRefs.current.set(mid, el) : matchRefs.current.delete(mid) }}>
                     <Slot teamId={m.teamA} src={m.srcA} isWin={m.winner === m.teamA} score={scoreOf(m, 'a')} />
                     <Slot teamId={m.teamB} src={m.srcB} isWin={m.winner === m.teamB} score={scoreOf(m, 'b')} />
                   </div>
@@ -104,6 +109,17 @@ export default function Bracket({ state, teams, participants = [], highlightTeam
             </div>
           </div>
         ))}
+        {/* 우승 자리 */}
+        <div className="bracket-round">
+          <div className="round-label">🏆 우승</div>
+          <div className="matches">
+            <div className="bmatch" ref={champRef}>
+              <div className={`champ-box ${champTeam ? '' : 'waiting'}`}>
+                {champTeam ? (champTeam.playerIds.length > 1 ? teamName(champTeam) : playerNames(champTeam)[0]) : '대기'}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
       {editable && swap.ghostEl}
     </div>

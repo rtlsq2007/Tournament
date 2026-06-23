@@ -222,8 +222,9 @@ body {
   transition:border-color .15s ease, background .15s ease; }
 .team-card.drop-into { border-color:var(--accent); background:var(--accent-weak); }
 .team-card.dragging { opacity:.4; }
-.drag-handle { cursor:grab; touch-action:none; user-select:none; }
-.drag-handle:active { cursor:grabbing; }
+.team-drag { cursor:grab; }
+.team-drag:active { cursor:grabbing; }
+.team-drag .team-name-in { cursor:text; }
 .team-card .tc-head { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
 .tnum { width:24px; height:24px; flex:none; border-radius:7px; display:grid; place-items:center; font-size:12px; font-weight:700;
   background:var(--accent-strong); color:#fff; }
@@ -274,3 +275,28 @@ body {
 .bteam-drag:active { cursor:grabbing; }
 .bteam-player.dragging { opacity:.35; }
 .bteam-player.swap-target { background:var(--accent-weak); box-shadow:0 0 0 2px var(--accent); }
+
+/* 복식 팀: 선수별 분리 박스 + 팀명 헤더 */
+.bteam.doubles { flex-direction:column; align-items:stretch; gap:5px; padding:8px; }
+.bteam-head-row { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.bplayer { border:1px solid var(--border-strong); border-radius:7px; padding:7px 10px; background:var(--surface-2);
+  font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; transition:all .12s ease; }
+.bplayer.bdrag { cursor:grab; touch-action:none; }
+.bplayer.bdrag:active { cursor:grabbing; }
+.bplayer.bdrag:hover { border-color:var(--accent); }
+.bplayer.dragging { opacity:.35; }
+.bplayer.swap-target { border-color:var(--accent); box-shadow:0 0 0 2px var(--accent-weak); }
+
+/* 단식 박스 드래그 */
+.bteam.bdrag { cursor:grab; touch-action:none; }
+.bteam.bdrag:active { cursor:grabbing; }
+.bteam.dragging { opacity:.4; }
+.bteam.swap-target { border-color:var(--accent); box-shadow:0 0 0 2px var(--accent-weak); }
+
+/* 우승 자리 */
+.champ-box { min-width:170px; padding:14px 16px; border-radius:11px; text-align:center; font-weight:800; font-size:15px;
+  color:#fff; background:linear-gradient(135deg, var(--accent-strong), #a78bfa); box-shadow:var(--shadow-md); }
+.champ-box.waiting { color:var(--text-muted); background:var(--surface); border:1px dashed var(--border-strong); box-shadow:none; font-weight:600; }
+
+/* 대진표 툴바 (확대/축소) */
+.bracket-toolbar { position:sticky; top:0; display:flex; align-items:center; gap:10px; margin-bottom:16px; z-index:2; }

@@ -61,11 +61,11 @@ export default function ParticipantsTab({ participants, setParticipants, teams, 
       ) : (
         <div className="team-grid">
           {teams.map((t, i) => (
-            <div className={`team-card ${teamSwap.dragId === t.id ? 'dragging' : ''} ${teamSwap.targetId === t.id ? 'drop-into' : ''}`}
-              key={t.id} data-team={t.id}>
+            <div className={`team-card team-drag ${teamSwap.dragId === t.id ? 'dragging' : ''} ${teamSwap.targetId === t.id ? 'drop-into' : ''}`}
+              key={t.id} data-team={t.id} title="카드를 꾹 눌러 드래그하면 팀 위치를 바꿀 수 있어요"
+              onPointerDown={e => { if (e.target.closest('.team-name-in') || e.target.closest('.pchip')) return; teamSwap.begin(e, t.id) }}>
               <div className="tc-head">
-                <span className="tnum drag-handle" title="팀 위치 바꾸기 (꾹 눌러 드래그)"
-                  onPointerDown={e => teamSwap.begin(e, t.id)}>{i + 1}</span>
+                <span className="tnum">{i + 1}</span>
                 <input className="team-name-in" value={t.label}
                   onChange={e => renameTeam(t.id, e.target.value)} placeholder={`${i + 1}팀`} />
                 {step === 2 && <span className="tc-sum">전력 {t.tierSum}</span>}

@@ -43,6 +43,7 @@ export default function AdminView() {
   const [teams, setTeams] = useState([])
   const [work, setWork] = useState(null) // { structure, matches }
   const [error, setError] = useState(null)
+  const [zoom, setZoom] = useState(1)
 
   useEffect(() => {
     if (demo) { const d = demoData(); setData(d); setParticipants(d.participants); return }
@@ -196,7 +197,15 @@ export default function AdminView() {
       </section>
 
       <div className="editor-bracket">
-        <Bracket state={work} teams={teams} participants={participants} editable swapPlayers={swapPlayers} />
+        <div className="bracket-toolbar">
+          <span className="muted small" style={{ fontWeight: 600 }}>대진표 크기</span>
+          <div className="seg" style={{ width: 'auto' }}>
+            {[0.5, 0.75, 1].map(z => (
+              <button key={z} className={zoom === z ? 'active' : ''} onClick={() => setZoom(z)}>{z * 100}%</button>
+            ))}
+          </div>
+        </div>
+        <Bracket state={work} teams={teams} participants={participants} editable swapPlayers={swapPlayers} zoom={zoom} />
       </div>
     </div>
   )
