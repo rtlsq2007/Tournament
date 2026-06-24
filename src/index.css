@@ -193,6 +193,7 @@ body {
 .round-label { align-self:flex-start; font-size:12px; font-weight:700; color:var(--text); background:var(--surface-2);
   border:1px solid var(--border-strong); padding:5px 12px; border-radius:var(--r-pill); margin-bottom:14px; }
 .bracket-round .matches { display:flex; flex-direction:column; justify-content:space-around; flex:1; }
+.center-col .matches { justify-content:center; gap:34px; }
 .bmatch { display:flex; flex-direction:column; gap:6px; margin:11px 0; position:relative;
   border:1px solid var(--border-strong); border-radius:13px; padding:7px; background:var(--surface-2); }
 .bmatch:has(.champ-box) { border:none; padding:0; background:none; }

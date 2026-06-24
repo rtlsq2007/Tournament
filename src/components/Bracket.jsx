@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, useState } from 'react'
 import { useSwap } from './admin/useSwap.jsx'
 
 // 우측 라이브 대진표. SVG 연결선 + 우승 자리 + 확대/축소. editable이면 선수 드래그 스왑.
+// 16강 이상(라운드 4개+)이면 좌우 양방향(가운데 결승) 레이아웃.
 export default function Bracket({ state, teams, participants = [], highlightTeamIds = [], editable = false, swapPlayers, deletePlayer, zoom = 1, teamMode = false }) {
   const wrapRef = useRef(null)
   const champRef = useRef(null)
@@ -16,30 +17,44 @@ export default function Bracket({ state, teams, participants = [], highlightTeam
 
   const rounds = state?.structure?.rounds || []
   const labels = state?.structure?.labels || []
+  const R = rounds.length
+  const twoSided = R >= 4
   const finalId = rounds.at(-1)?.[0]
 
   useLayoutEffect(() => {
     const wrap = wrapRef.current
     if (!wrap || !state?.matches?.length) { setPaths([]); return }
     const wr = wrap.getBoundingClientRect()
-    const rel = el => { const r = el.getBoundingClientRect(); return { l: r.left - wr.left, r: r.right - wr.left, m: r.top - wr.top + r.height / 2 } }
+    const rel = el => {
+      const r = el.getBoundingClientRect()
+      return { l: r.left - wr.left, r: r.right - wr.left, m: r.top - wr.top + r.height / 2, cx: (r.left + r.right) / 2 - wr.left, t: r.top - wr.top, b: r.bottom - wr.top }
+    }
+    // 자식이 오른쪽이면 오른쪽 엘보, 왼쪽이면 왼쪽 엘보 (양방향 대응)
+    const connect = (f, c) => {
+      if (c.l >= f.r - 1) { const mid = f.r + (c.l - f.r) / 2; return `M ${f.r} ${f.m} H ${mid} V ${c.m} H ${c.l}` }
+      if (c.r <= f.l + 1) { const mid = c.r + (f.l - c.r) / 2; return `M ${f.l} ${f.m} H ${mid} V ${c.m} H ${c.r}` }
+      return `M ${f.r} ${f.m} L ${c.l} ${c.m}`
+    }
     const segs = []
-    const elbow = (f, c) => `M ${f.r} ${f.m} H ${f.r + (c.l - f.r) / 2} V ${c.m} H ${c.l}`
     for (const m of state.matches) {
       const childEl = matchRefs.current.get(m.id)
       if (!childEl) continue
       const c = rel(childEl)
       for (const src of [m.srcA, m.srcB]) {
         const fEl = src?.match && matchRefs.current.get(src.match)
-        if (fEl) segs.push(elbow(rel(fEl), c))
+        if (fEl) segs.push(connect(rel(fEl), c))
       }
     }
     // 결승 → 우승 연결
-    if (champRef.current && finalId && matchRefs.current.get(finalId)) {
-      segs.push(elbow(rel(matchRefs.current.get(finalId)), rel(champRef.current)))
+    const fId = rounds.at(-1)?.[0]
+    if (champRef.current && fId && matchRefs.current.get(fId)) {
+      const f = rel(matchRefs.current.get(fId)), c = rel(champRef.current)
+      segs.push(twoSided
+        ? `M ${f.cx} ${f.b} V ${f.b + (c.t - f.b) / 2} H ${c.cx} V ${c.t}` // 가운데: 결승 아래로
+        : connect(f, c))
     }
     setPaths(segs)
-  }, [state, teams, participants, zoom])
+  }, [state, teams, participants, zoom, twoSided])
 
   if (!rounds.length) {
     return <div className="muted">참가자를 추가하면 대진표가 생성됩니다.</div>
@@ -71,7 +86,7 @@ export default function Bracket({ state, teams, participants = [], highlightTeam
     }
     const names = playerNames(team)
     const ids = team.playerIds
-    if (teamMode) { // 복식/혼복: 1인 팀이어도 팀 헤더 + 선수 박스
+    if (teamMode) {
       return (
         <div className={`bteam doubles ${isWin ? 'win' : ''} ${hi ? 'win' : ''}`}>
           <div className="bteam-head-row">
@@ -96,7 +111,62 @@ export default function Bracket({ state, teams, participants = [], highlightTeam
     )
   }
 
+  const refFn = mid => el => { el ? matchRefs.current.set(mid, el) : matchRefs.current.delete(mid) }
+  const matchBox = (mid, label) => {
+    const m = byId(mid)
+    return (
+      <div className="bmatch" key={mid} ref={refFn(mid)}>
+        {label && <div className="round-label round-label-float">{label}</div>}
+        <Slot teamId={m.teamA} src={m.srcA} isWin={m.winner === m.teamA} score={scoreOf(m, 'a')} />
+        <Slot teamId={m.teamB} src={m.srcB} isWin={m.winner === m.teamB} score={scoreOf(m, 'b')} />
+      </div>
+    )
+  }
+  const column = (label, ids, key) => (
+    <div className="bracket-round" key={key}>
+      <div className="matches">{ids.map((mid, mi) => matchBox(mid, mi === 0 ? label : null))}</div>
+    </div>
+  )
+
   const champTeam = finalId ? teamById(byId(finalId).winner) : null
+  const champBox = (
+    <div className="bmatch" key="champ" ref={champRef}>
+      <div className="round-label round-label-float">🏆 우승</div>
+      <div className={`champ-box ${champTeam ? '' : 'waiting'}`}>
+        {champTeam ? (teamMode ? teamName(champTeam) : playerNames(champTeam)[0]) : '대기'}
+      </div>
+    </div>
+  )
+
+  let body
+  if (!twoSided) {
+    body = (
+      <>
+        {rounds.map((round, ri) => column(labels[ri] || `${round.length * 2}강`, round, 'r' + ri))}
+        <div className="bracket-round" key="champcol"><div className="matches">{champBox}</div></div>
+      </>
+    )
+  } else {
+    // 각 라운드를 좌/우 절반으로 분할 (결승의 두 피더 기준). 결승+우승은 가운데.
+    const isLeft = (r, i) => (i >> (R - 2 - r)) === 0
+    const leftCols = [], rightCols = []
+    for (let r = 0; r <= R - 2; r++) {
+      leftCols.push([labels[r], rounds[r].filter((_, i) => isLeft(r, i))])
+      rightCols.push([labels[r], rounds[r].filter((_, i) => !isLeft(r, i))])
+    }
+    body = (
+      <>
+        {leftCols.map(([lab, ids], i) => column(lab, ids, 'L' + i))}
+        <div className="bracket-round center-col" key="center">
+          <div className="matches">
+            {matchBox(finalId, labels[R - 1])}
+            {champBox}
+          </div>
+        </div>
+        {rightCols.slice().reverse().map(([lab, ids], i) => column(lab, ids, 'R' + i))}
+      </>
+    )
+  }
 
   return (
     <div className="bracket-wrap" ref={wrapRef}>
@@ -104,33 +174,7 @@ export default function Bracket({ state, teams, participants = [], highlightTeam
         {paths.map((d, i) => <path key={i} d={d} fill="none" stroke="var(--border-strong)" strokeWidth="2" />)}
       </svg>
       <div className="bracket" style={{ transform: `scale(${zoom})`, transformOrigin: 'top left' }}>
-        {rounds.map((round, ri) => (
-          <div className="bracket-round" key={ri}>
-            <div className="matches">
-              {round.map((mid, mi) => {
-                const m = byId(mid)
-                return (
-                  <div className="bmatch" key={mid} ref={el => { el ? matchRefs.current.set(mid, el) : matchRefs.current.delete(mid) }}>
-                    {mi === 0 && <div className="round-label round-label-float">{labels[ri] || `${round.length * 2}강`}</div>}
-                    <Slot teamId={m.teamA} src={m.srcA} isWin={m.winner === m.teamA} score={scoreOf(m, 'a')} />
-                    <Slot teamId={m.teamB} src={m.srcB} isWin={m.winner === m.teamB} score={scoreOf(m, 'b')} />
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        ))}
-        {/* 우승 자리 */}
-        <div className="bracket-round">
-          <div className="matches">
-            <div className="bmatch" ref={champRef}>
-              <div className="round-label round-label-float">🏆 우승</div>
-              <div className={`champ-box ${champTeam ? '' : 'waiting'}`}>
-                {champTeam ? (teamMode ? teamName(champTeam) : playerNames(champTeam)[0]) : '대기'}
-              </div>
-            </div>
-          </div>
-        </div>
+        {body}
       </div>
       {editable && swap.ghostEl}
       {editable && swap.trashEl}
