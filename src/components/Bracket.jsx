@@ -78,7 +78,7 @@ export default function Bracket({ state, teams, participants = [], highlightTeam
 
   const Slot = ({ teamId, src, isWin, score }) => {
     const team = teamId ? teamById(teamId) : null
-    const waiting = !teamId && src?.match
+    const waiting = !teamId && (src?.match || src?.loserOf) // 3·4위전은 loserOf로 진출
     const hi = highlightTeamIds.includes(teamId)
     if (!team) {
       if (!waiting) return null // 상대 없는 빈 자리는 표시하지 않음
@@ -128,6 +128,10 @@ export default function Bracket({ state, teams, participants = [], highlightTeam
     </div>
   )
 
+  // 3·4위전(동메달 결정전) — 있으면 우승 자리 옆/아래에 함께 표시
+  const thirdId = state?.structure?.thirdPlace
+  const thirdBox = thirdId && byId(thirdId) ? matchBox(thirdId, '🥉 3·4위전') : null
+
   const champTeam = finalId ? teamById(byId(finalId).winner) : null
   const champBox = (
     <div className="bmatch" key="champ" ref={champRef}>
@@ -143,7 +147,7 @@ export default function Bracket({ state, teams, participants = [], highlightTeam
     body = (
       <>
         {rounds.map((round, ri) => column(labels[ri] || `${round.length * 2}강`, round, 'r' + ri))}
-        <div className="bracket-round" key="champcol"><div className="matches">{champBox}</div></div>
+        <div className="bracket-round" key="champcol"><div className="matches">{champBox}{thirdBox}</div></div>
       </>
     )
   } else {
@@ -161,6 +165,7 @@ export default function Bracket({ state, teams, participants = [], highlightTeam
           <div className="matches">
             {matchBox(finalId, labels[R - 1])}
             {champBox}
+            {thirdBox}
           </div>
         </div>
         {rightCols.slice().reverse().map(([lab, ids], i) => column(lab, ids, 'R' + i))}

@@ -21,6 +21,12 @@ async function handleApi(request, env, url) {
       if (request.method === 'PUT') return await putMembers(request, env)
       return json({ error: 'method not allowed' }, 405)
     }
+    // 경기 기록 보관함 (클럽 공용 — 모든 대회 결과 누적)
+    if (url.pathname === '/api/records') {
+      if (request.method === 'GET') return await getKvList(env, 'records')
+      if (request.method === 'PUT') return await putKvList(request, env, 'records')
+      return json({ error: 'method not allowed' }, 405)
+    }
     // AI 밸런싱
     if (url.pathname === '/api/balance' && request.method === 'POST') return await balanceTeams(request, env)
   } catch (e) {
@@ -97,6 +103,21 @@ async function putMembers(request, env) {
   await env.DB.prepare("INSERT INTO app_kv (k, v) VALUES ('members', ?) ON CONFLICT(k) DO UPDATE SET v=excluded.v")
     .bind(JSON.stringify(members)).run()
   return json({ ok: true, count: members.length })
+}
+
+// 범용 KV 리스트 (app_kv에 JSON 배열 한 칸). 키별로 GET/PUT.
+async function getKvList(env, key) {
+  await ensureKv(env)
+  const row = await env.DB.prepare('SELECT v FROM app_kv WHERE k=?').bind(key).first()
+  return json({ [key]: row ? JSON.parse(row.v) : [] })
+}
+async function putKvList(request, env, key) {
+  await ensureKv(env)
+  const body = await request.json()
+  const list = Array.isArray(body[key]) ? body[key] : []
+  await env.DB.prepare('INSERT INTO app_kv (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v=excluded.v')
+    .bind(key, JSON.stringify(list)).run()
+  return json({ ok: true, count: list.length })
 }
 
 // ===== AI 밸런싱 (Gemini) =====

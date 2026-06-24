@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { createTournament } from '../lib/api.js'
+import { todayName } from '../lib/date.js'
 
 const SPORTS = [
   { key: 'badminton', ico: '🏸', label: '배드민턴', ready: true },
@@ -18,12 +19,13 @@ export default function Home() {
     setBusy(true)
     try {
       // 기본값으로 대회 생성 → 상세 설정은 편집기(경기정보 탭)에서
+      const name = todayName() // 오늘 날짜 기준 기본 대회명
       const { id, adminToken } = await createTournament({
-        name: '', sport,
+        name, sport,
         format: 'single_elim', matchType: 'doubles', pairingMode: 'manual',
         settings: { pointsToWin: 21, bestOf: 1 },
       })
-      const list = [{ id, name: '', token: adminToken }, ...recent].slice(0, 10)
+      const list = [{ id, name, token: adminToken }, ...recent].slice(0, 10)
       localStorage.setItem('recent_tournaments', JSON.stringify(list))
       nav(`/t/${id}/admin?token=${adminToken}`)
     } catch (e) {

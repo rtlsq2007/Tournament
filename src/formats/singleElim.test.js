@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { generate, applyResult, pickWinner, isComplete, standings } from './singleElim.js'
+import { generate, applyResult, pickWinner, setMatchBestOf, isComplete, standings } from './singleElim.js'
 
 const mkTeams = n => Array.from({ length: n }, (_, i) => ({ id: `t${i + 1}`, label: '', playerIds: [`p${i + 1}`], tierSum: 3 }))
 const byId = (s, id) => s.matches.find(m => m.id === id)
@@ -51,6 +51,28 @@ describe('singleElim 결과/진출', () => {
     expect(lone.winner).toBe(null) // 자동 진출 안 함
     s = pickWinner(s, lone.id, lone.teamA, { bestOf: 1 })
     expect(byId(s, s.structure.rounds[0][2]).winner).toBe(lone.teamA)
+  })
+  it('3·4위전: 준결승 패자 둘이 맞붙고, 승자가 3위', () => {
+    const opt = { bestOf: 1, thirdPlace: true }
+    let s = generate(mkTeams(4), opt)
+    expect(s.structure.thirdPlace).toBeTruthy()
+    const semis = s.structure.rounds[0]
+    const a = byId(s, semis[0]), b = byId(s, semis[1])
+    s = pickWinner(s, semis[0], a.teamA, opt) // a.teamB 탈락
+    s = pickWinner(s, semis[1], b.teamA, opt) // b.teamB 탈락
+    const tp = byId(s, s.structure.thirdPlace)
+    expect([tp.teamA, tp.teamB].sort()).toEqual([a.teamB, b.teamB].sort())
+    s = pickWinner(s, tp.id, a.teamB, opt)
+    expect(standings(s).third).toBe(a.teamB)
+  })
+  it('매치별 bestOf(setMatchBestOf): 결승만 3판2선으로', () => {
+    let s = generate(mkTeams(2), { bestOf: 1 })
+    const fin = s.structure.rounds[0][0]
+    s = setMatchBestOf(s, fin, 3, { bestOf: 1 })
+    s = applyResult(s, fin, [{ a: 21, b: 10 }], { bestOf: 1 })
+    expect(byId(s, fin).winner).toBe(null) // 1세트론 미결정
+    s = applyResult(s, fin, [{ a: 21, b: 10 }, { a: 21, b: 15 }], { bestOf: 1 })
+    expect(byId(s, fin).winner).toBe(byId(s, fin).teamA)
   })
   it('결승까지 완료 시 우승자', () => {
     let s = generate(mkTeams(4), { bestOf: 1 })

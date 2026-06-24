@@ -38,6 +38,20 @@ export async function putMembers(members) {
   return r.json()
 }
 
+// 경기 기록 보관함 (클럽 공용 — 모든 대회 결과 누적)
+export async function getRecords() {
+  const r = await fetch('/api/records')
+  if (!r.ok) throw new Error('기록 불러오기 실패')
+  return (await r.json()).records || []
+}
+export async function putRecords(records) {
+  const r = await fetch('/api/records', {
+    method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ records }),
+  })
+  if (!r.ok) throw new Error('기록 저장 실패')
+  return r.json()
+}
+
 // AI 밸런싱: players [{name,tier,strengths,weaknesses}] → [[선수인덱스,...], ...]
 export async function aiBalance(players, teamSize) {
   const r = await fetch('/api/balance', {

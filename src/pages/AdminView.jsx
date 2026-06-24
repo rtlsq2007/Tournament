@@ -1,19 +1,21 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { QRCodeCanvas } from 'qrcode.react'
-import { getTournament, putTournament, getMembers, putMembers } from '../lib/api.js'
+import { getTournament, putTournament, getMembers, putMembers, getRecords, putRecords } from '../lib/api.js'
 import { getFormat, FORMAT_LABELS } from '../formats/index.js'
 import { pairTeams } from '../lib/balancer.js'
+import { todayName } from '../lib/date.js'
 import Bracket from '../components/Bracket.jsx'
+import ThemeToggle from '../components/ThemeToggle.jsx'
 import ParticipantsTab from '../components/admin/ParticipantsTab.jsx'
 import ClubTab from '../components/admin/ClubTab.jsx'
 
 const TABS = [
   { key: 'info', label: '경기정보', ico: '⚙️' },
   { key: 'players', label: '참가자', ico: '👥' },
-  { key: 'club', label: '라켓단', ico: '📇' },
   { key: 'results', label: '경기판정', ico: '📋' },
   { key: 'record', label: '경기기록', ico: '📜' },
+  { key: 'club', label: '라켓단', ico: '📇' },
   { key: 'share', label: '공유', ico: '🔗' },
 ]
 const FORMATS = [
@@ -23,7 +25,6 @@ const FORMATS = [
   { key: 'gameday', label: '게임데이', ready: false },
 ]
 const MATCH_TYPES = [{ key: 'doubles', label: '복식' }, { key: 'singles', label: '단식' }, { key: 'mixed', label: '혼복' }]
-const PAIRING = [{ key: 'auto', label: '자동 밸런싱' }, { key: 'manual', label: '직접 구성' }]
 const BEST_OF = [{ v: 1, label: '단판' }, { v: 3, label: '3판2선' }, { v: 5, label: '5판3선' }]
 
 function demoData() {
@@ -70,6 +71,7 @@ export default function AdminView() {
   const [work, setWork] = useState(null) // { structure, matches }
   const [error, setError] = useState(null)
   const [zoom, setZoom] = useState(1)
+  const bracketBoxRef = useRef(null) // Ctrl+휠로 대진표만 줌
   const skipReconcileRef = useRef(false) // 로드 직후 팀 재구성 1회 스킵
   const skipWorkRef = useRef(false)      // 로드 직후 대진 재생성 1회 스킵
   const baseUpdatedAtRef = useRef(0)     // 낙관적 동시성 기준
@@ -91,7 +93,7 @@ export default function AdminView() {
     getTournament(id)
       .then(res => {
         const d = res.data
-        setData(d)
+        setData({ ...d, name: d.name || todayName() }) // 대회명 비어있으면 오늘 날짜 기본
         setParticipants(d.participants || [])
         baseUpdatedAtRef.current = res.updatedAt || 0
         if (d.teams?.length) { // 저장된 팀/대진이 있으면 그대로 복원 (재구성/재생성 스킵)
@@ -147,7 +149,20 @@ export default function AdminView() {
     const gen = fmt.generate(teams, data.settings)
     setWork({ structure: gen.structure, matches: gen.matches })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [teams, data?.format, data?.settings?.bestOf])
+  }, [teams, data?.format, data?.settings?.bestOf, data?.settings?.thirdPlace])
+
+  // Ctrl+휠: 페이지 전체가 아니라 대진표만 확대/축소 (브라우저 줌 가로채기)
+  useEffect(() => {
+    const el = bracketBoxRef.current
+    if (!el) return
+    const onWheel = e => {
+      if (!e.ctrlKey) return
+      e.preventDefault()
+      setZoom(z => Math.min(1.5, Math.max(0.4, +(z * (e.deltaY < 0 ? 1.08 : 0.92)).toFixed(3))))
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [data, work])
 
   const onResult = (matchId, games) => {
     const fmt = getFormat(data.format)
@@ -160,6 +175,14 @@ export default function AdminView() {
     const fmt = getFormat(data.format)
     setWork(w => {
       const next = fmt.pickWinner({ structure: w.structure, matches: w.matches }, matchId, teamId, data.settings)
+      return { structure: next.structure, matches: next.matches }
+    })
+  }
+  // 결승 세트수(bestOf) 조정 — 결승 경기에만 적용
+  const onSetBestOf = (matchId, bestOf) => {
+    const fmt = getFormat(data.format)
+    setWork(w => {
+      const next = fmt.setMatchBestOf({ structure: w.structure, matches: w.matches }, matchId, bestOf, data.settings)
       return { structure: next.structure, matches: next.matches }
     })
   }
@@ -200,6 +223,7 @@ export default function AdminView() {
         </div>
         <a className="btn btn-primary" href={publicUrl} target="_blank" rel="noreferrer">참가자 화면 ↗</a>
       </div>
+      <ThemeToggle admin />{/* 참가자 화면 버튼 아래 코너에 배치 */}
 
       <nav className="editor-rail">
         {TABS.map(t => (
@@ -227,14 +251,17 @@ export default function AdminView() {
               <div className="seg">{MATCH_TYPES.map(m => (
                 <button key={m.key} className={data.matchType === m.key ? 'active' : ''}
                   onClick={() => setData({ ...data, matchType: m.key })}>{m.label}</button>))}</div></div>
-            <div className="field"><label>{data.matchType === 'singles' ? '매칭 밸런싱' : '팀 구성'}</label>
-              <div className="seg">{PAIRING.map(p => (
-                <button key={p.key} className={data.pairingMode === p.key ? 'active' : ''}
-                  onClick={() => setData({ ...data, pairingMode: p.key })}>{p.label}</button>))}</div></div>
             <div className="field"><label>경기 방식</label>
               <div className="seg">{BEST_OF.map(b => (
                 <button key={b.v} className={data.settings.bestOf === b.v ? 'active' : ''}
-                  onClick={() => setSetting({ bestOf: b.v })}>{b.label}</button>))}</div></div>
+                  onClick={() => setSetting({ bestOf: b.v })}>{b.label}</button>))}</div>
+              <div className="panel-hint" style={{ margin: '2px 0 0' }}>결승만 다른 세트수로 하려면 ‘경기판정’ 탭의 결승에서 조정할 수 있어요.</div></div>
+            <div className="field"><label>패자전</label>
+              <label className="check-row">
+                <input type="checkbox" checked={!!data.settings.thirdPlace}
+                  onChange={e => setSetting({ thirdPlace: e.target.checked })} />
+                <span>3·4위전 진행 <span className="muted small">· 준결승 패자끼리 동메달 결정전</span></span>
+              </label></div>
           </div>
         )}
 
@@ -246,7 +273,11 @@ export default function AdminView() {
 
         {tab === 'club' && <ClubTab members={members} setMembers={setMembers} />}
 
-        {tab === 'results' && (
+        {tab === 'results' && (() => {
+          const finalId = work.structure.rounds.at(-1)?.[0]
+          const tpId = work.structure.thirdPlace
+          const tpMatch = tpId && work.matches.find(x => x.id === tpId)
+          return (
           <div>
             <div className="panel-title">경기 판정</div>
             <div className="panel-hint">승자를 선택하면 다음 강으로 자동 진출합니다. 정확한 점수도 입력할 수 있습니다.</div>
@@ -255,15 +286,25 @@ export default function AdminView() {
                 <div className="rg-title">{work.structure.labels[ri]}</div>
                 {round.map(mid => {
                   const m = work.matches.find(x => x.id === mid)
-                  return <ResultCard key={mid} match={m} teams={teams} participants={participants} bestOf={data.settings.bestOf} onResult={onResult} onPick={onPick} />
+                  return <ResultCard key={mid} match={m} teams={teams} participants={participants}
+                    bestOf={data.settings.bestOf} isFinal={mid === finalId}
+                    onResult={onResult} onPick={onPick} onSetBestOf={onSetBestOf} />
                 })}
               </div>
             ))}
+            {tpMatch && (
+              <div className="rgroup">
+                <div className="rg-title">🥉 3·4위전</div>
+                <ResultCard match={tpMatch} teams={teams} participants={participants}
+                  bestOf={data.settings.bestOf} onResult={onResult} onPick={onPick} />
+              </div>
+            )}
           </div>
-        )}
+          )
+        })()}
 
         {tab === 'record' && (
-          <RecordView data={data} setData={setData} teams={teams} participants={participants} work={work} />
+          <RecordView data={data} setData={setData} teams={teams} participants={participants} work={work} tournamentId={id} />
         )}
 
         {tab === 'share' && (
@@ -283,7 +324,7 @@ export default function AdminView() {
         )}
       </section>
 
-      <div className="editor-bracket">
+      <div className="editor-bracket" ref={bracketBoxRef}>
         <div className="bracket-toolbar">
           <span className="muted small" style={{ fontWeight: 600 }}>대진표 크기</span>
           <input type="range" className="zoom-range" min="0.4" max="1.5" step="0.05"
@@ -296,17 +337,31 @@ export default function AdminView() {
   )
 }
 
-function ResultCard({ match, teams, participants, bestOf, onResult, onPick }) {
+function ResultCard({ match, teams, participants, bestOf, isFinal = false, onResult, onPick, onSetBestOf }) {
   const label = id => {
     const t = teams.find(x => x.id === id)
     if (!t) return '미정'
     if (t.playerIds.length > 1) return t.label?.trim() || `${t.no}팀` // 복식: 팀명
     return participants.find(p => p.id === t.playerIds[0])?.name || '?' // 단식: 선수명
   }
-  const rows = bestOf === 1 ? 1 : bestOf
-  const need = Math.floor(bestOf / 2) + 1
+  const eff = match.bestOf || bestOf // 매치별 세트수 override(결승 조정) 우선
+  const need = Math.floor(eff / 2) + 1
   const [sets, setSets] = useState(() => (match.games || []).map(g => ({ a: String(g.a), b: String(g.b) })))
   const getSet = i => sets[i] || { a: '', b: '' }
+
+  // 조기 종료: 한 팀이 need 세트를 먼저 따면 그 세트까지만 표시(남은 세트 숨김)
+  const rows = (() => {
+    if (eff === 1) return 1
+    let a = 0, b = 0
+    for (let i = 0; i < sets.length; i++) {
+      const x = Number(sets[i].a), y = Number(sets[i].b)
+      if (sets[i].a !== '' && sets[i].b !== '' && x !== y) {
+        x > y ? a++ : b++
+        if (a === need || b === need) return i + 1
+      }
+    }
+    return eff
+  })()
 
   const ready = match.teamA && match.teamB
   const loneA = match.teamA && !match.teamB && match.srcB == null
@@ -332,21 +387,29 @@ function ResultCard({ match, teams, participants, bestOf, onResult, onPick }) {
     return acc
   }, { a: 0, b: 0 })
 
-  const head = ready ? (bestOf === 1 ? '점수 입력 또는 승자 선택' : `${bestOf}판 ${need}선승 · 세트 점수`)
+  const head = ready ? (eff === 1 ? '점수 입력 또는 승자 선택' : `${eff}판 ${need}선승 · 세트 점수`)
     : loneA ? '상대 없음 — 부전승 가능'
-    : (match.srcA?.match || match.srcB?.match) ? '이전 경기 결과 대기' : '상대 미정'
+    : (match.srcA?.match || match.srcB?.match || match.srcA?.loserOf || match.srcB?.loserOf) ? '이전 경기 결과 대기' : '상대 미정'
 
   return (
     <div className="gcard">
       <div className="gc-head">{head}</div>
+      {isFinal && onSetBestOf && (
+        <div className="setcount-ctrl">
+          <span className="muted small">결승 세트수</span>
+          <button onClick={() => onSetBestOf(match.id, Math.max(1, eff - 2))} disabled={eff <= 1} aria-label="세트수 줄이기">−</button>
+          <b>{eff === 1 ? '단판' : `${eff}판 ${need}선승`}</b>
+          <button onClick={() => onSetBestOf(match.id, Math.min(9, eff + 2))} disabled={eff >= 9} aria-label="세트수 늘리기">＋</button>
+        </div>
+      )}
       <div className="gc-teams">
         <span className="gc-name">{label(match.teamA)}</span>
-        {bestOf > 1 && ready && <span className="gc-sets">{wins.a} : {wins.b}</span>}
+        {eff > 1 && ready && <span className="gc-sets">{wins.a} : {wins.b}</span>}
         <span className="gc-name" style={{ textAlign: 'right' }}>{match.teamB ? label(match.teamB) : '—'}</span>
       </div>
       {ready && Array.from({ length: rows }).map((_, i) => (
         <div className="gc-row" key={i}>
-          {bestOf > 1 && <span className="gc-set-no">{i + 1}세트</span>}
+          {eff > 1 && <span className="gc-set-no">{i + 1}세트</span>}
           <input className="gc-score-in" value={getSet(i).a}
             onChange={e => setScore(i, 'a', e.target.value)}
             onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()} />
@@ -370,30 +433,34 @@ function ResultCard({ match, teams, participants, bestOf, onResult, onPick }) {
   )
 }
 
-// 경기 기록: 현재 진행 상황을 스냅샷으로 저장하고, 저장된 기록을 열람.
-function RecordView({ data, setData, teams, participants, work }) {
+// 경기 기록: 현재 대회를 스냅샷으로 저장하고, 클럽의 모든 대회 기록을 한 곳에서 열람.
+function RecordView({ data, setData, teams, participants, work, tournamentId }) {
   const [open, setOpen] = useState(null)
-  const records = data.records || []
+  const [archive, setArchive] = useState(null) // 클럽 공용 보관함(서버)
+  const [busy, setBusy] = useState(false)
+  useEffect(() => { getRecords().then(setArchive).catch(() => setArchive([])) }, [])
+
   const teamLabel = id => {
     const t = teams.find(x => x.id === id)
     if (!t) return '—'
     if (t.playerIds.length > 1) return t.label?.trim() || `${t.no}팀`
     return participants.find(p => p.id === t.playerIds[0])?.name || '?'
   }
-  const setScore = m => {
-    if (!m.games?.length) return ''
-    if (m.games.length === 1) return `${m.games[0].a} : ${m.games[0].b}`
-    const a = m.games.reduce((s, g) => s + (g.a > g.b ? 1 : 0), 0)
-    const b = m.games.reduce((s, g) => s + (g.b > g.a ? 1 : 0), 0)
-    return `${a} : ${b} 세트`
-  }
   const rounds = work?.structure?.rounds || []
   const labels = work?.structure?.labels || []
   const champion = rounds.length ? work.matches.find(x => x.id === rounds.at(-1)[0])?.winner : null
+  const tpId = work?.structure?.thirdPlace
+  const third = tpId ? work.matches.find(x => x.id === tpId)?.winner : null
+
+  // 이전 대회들(보관함) + 이 대회에 남아있던 옛 기록을 합쳐 최신순으로
+  const legacy = data.records || []
+  const list = [...(archive || []), ...legacy.filter(r => !(archive || []).some(a => a.id === r.id))]
+    .sort((a, b) => b.id - a.id)
 
   // 현재 상태를 이름·점수까지 고정한 스냅샷으로 변환
   const snapshot = () => ({
     id: Date.now(),
+    tournamentId, sport: data.sport,
     savedAt: new Date().toLocaleString('ko-KR'),
     name: data.name || '대회', matchType: data.matchType,
     teams: teams.map(t => ({ no: t.no, name: t.label?.trim() || `${t.no}팀`, players: t.playerIds.map(id => participants.find(p => p.id === id)?.name || '?') })),
@@ -410,9 +477,22 @@ function RecordView({ data, setData, teams, participants, work }) {
       }),
     })),
     champion: champion ? teamLabel(champion) : null,
+    third: third ? teamLabel(third) : null,
   })
-  const saveRecord = () => setData({ ...data, records: [snapshot(), ...records] })
-  const deleteRecord = id => setData({ ...data, records: records.filter(r => r.id !== id) })
+  const saveRecord = async () => {
+    const next = [snapshot(), ...(archive || [])]
+    setArchive(next)
+    setBusy(true)
+    try { await putRecords(next) } catch { /* 오프라인/데모: 로컬만 반영 */ } finally { setBusy(false) }
+  }
+  const deleteRecord = async id => {
+    if (archive?.some(r => r.id === id)) {
+      const next = archive.filter(r => r.id !== id)
+      setArchive(next)
+      putRecords(next).catch(() => {})
+    }
+    if (legacy.some(r => r.id === id)) setData({ ...data, records: legacy.filter(r => r.id !== id) })
+  }
   const downloadRecord = r => {
     const blob = new Blob([JSON.stringify(r, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
@@ -424,13 +504,14 @@ function RecordView({ data, setData, teams, participants, work }) {
   return (
     <div>
       <div className="panel-title">경기 기록</div>
-      <div className="panel-hint">지금 진행 상황을 저장하면 아래 목록에 남고, 눌러서 복기할 수 있어요. (새로고침해도 유지)</div>
+      <div className="panel-hint">지금 대회를 저장하면 클럽 보관함에 남고, 다른 대회 기록도 여기서 함께 볼 수 있어요. 눌러서 복기할 수 있습니다.</div>
       <button className="btn btn-primary" style={{ width: '100%', marginBottom: 14 }}
-        onClick={saveRecord} disabled={!rounds.length}>💾 현재 경기 저장</button>
+        onClick={saveRecord} disabled={!rounds.length || busy}>{busy ? '저장 중…' : '💾 현재 경기 저장'}</button>
 
-      {records.length === 0 && <div className="muted small">아직 저장된 기록이 없습니다. 위 버튼으로 현재 경기를 저장하세요.</div>}
+      {archive === null && <div className="muted small">기록 불러오는 중…</div>}
+      {archive !== null && list.length === 0 && <div className="muted small">아직 저장된 기록이 없습니다. 위 버튼으로 현재 경기를 저장하세요.</div>}
 
-      {records.map(r => (
+      {list.map(r => (
         <div className="card" key={r.id} style={{ padding: 12 }}>
           <div className="row-between" style={{ cursor: 'pointer' }} onClick={() => setOpen(open === r.id ? null : r.id)}>
             <div style={{ minWidth: 0 }}>
@@ -438,6 +519,7 @@ function RecordView({ data, setData, teams, participants, work }) {
             </div>
             <div className="row" style={{ gap: 6, flex: 'none' }}>
               {r.champion && <span className="badge">🏆 {r.champion}</span>}
+              {r.third && <span className="badge" title="3위">🥉 {r.third}</span>}
               <button className="icon-btn" title="JSON 저장" onClick={e => { e.stopPropagation(); downloadRecord(r) }}>📥</button>
               <button className="icon-btn" title="삭제" onClick={e => { e.stopPropagation(); deleteRecord(r.id) }}>🗑</button>
             </div>

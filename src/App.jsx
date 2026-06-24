@@ -6,10 +6,11 @@ import PublicView from './pages/PublicView.jsx'
 
 export default function App() {
   const loc = useLocation()
-  const isPublic = /^\/t\/[^/]+$/.test(loc.pathname) // 참가자 화면(/t/:id)은 토글을 하단에 자체 배치
+  // 참가자 화면(/t/:id)은 하단에, 운영자 화면(/t/:id/admin)은 상단 코너에 자체 배치 → 홈에서만 전역 토글
+  const isHome = loc.pathname === '/'
   return (
     <>
-      {!isPublic && <ThemeToggle />}
+      {isHome && <ThemeToggle />}
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/t/:id/admin" element={<AdminView />} />

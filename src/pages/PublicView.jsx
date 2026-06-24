@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { usePolling } from '../lib/api.js'
 import { getFormat } from '../formats/index.js'
@@ -10,6 +10,20 @@ export default function PublicView() {
   const { state, error } = usePolling(id)
   const [query, setQuery] = useState('')
   const [zoom, setZoom] = useState(1)
+  const bracketBoxRef = useRef(null)
+
+  // Ctrl+휠: 페이지 전체가 아니라 대진표만 확대/축소
+  useEffect(() => {
+    const el = bracketBoxRef.current
+    if (!el) return
+    const onWheel = e => {
+      if (!e.ctrlKey) return
+      e.preventDefault()
+      setZoom(z => Math.min(1.5, Math.max(0.4, +(z * (e.deltaY < 0 ? 1.08 : 0.92)).toFixed(3))))
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [state])
 
   const highlightTeamIds = useMemo(() => {
     if (!state || !query.trim()) return []
@@ -58,7 +72,7 @@ export default function PublicView() {
         </div>
       </div>
 
-      <div className="public-bracket">
+      <div className="public-bracket" ref={bracketBoxRef}>
         {hasBracket
           ? <Bracket state={work} teams={data.teams} participants={data.participants}
               teamMode={teamMode} highlightTeamIds={highlightTeamIds} zoom={zoom} />

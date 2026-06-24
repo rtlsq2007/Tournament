@@ -168,6 +168,8 @@ body {
 .theme-btn:hover { border-color: var(--accent); }
 .theme-btn-bottom { position:fixed; top:auto; bottom:18px; left:50%; right:auto; transform:translateX(-50%);
   width:auto; height:auto; padding:10px 18px; border-radius:var(--r-pill); font-size:14px; font-weight:600; box-shadow:var(--shadow-md); }
+/* 운영자 화면: 상단바(58px) 아래, '참가자 화면' 버튼 바로 밑 코너 */
+.theme-btn-admin { top:66px; right:18px; }
 
 /* ===== 참가자 읽기전용 화면 ===== */
 .public { min-height:100svh; padding:18px 16px 84px; display:flex; flex-direction:column; gap:14px; }
@@ -206,9 +208,9 @@ body {
 .prow { display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--border);
   border-radius:var(--r-ctrl); margin-bottom:8px; background:var(--surface-2); }
 .prow .pname { flex:1; font-weight:600; }
-.prow .icon-btn { width:32px; height:32px; border-radius:8px; display:grid; place-items:center; background:transparent;
-  color:var(--text-muted); border:1px solid var(--border); }
-.prow .icon-btn:hover { color:var(--text); border-color:var(--accent); }
+.icon-btn { width:32px; height:32px; border-radius:8px; display:grid; place-items:center; background:transparent;
+  color:var(--text-muted); border:1px solid var(--border); cursor:pointer; }
+.icon-btn:hover { color:var(--text); border-color:var(--accent); }
 .count-pill { display:inline-flex; align-items:center; gap:0; border:1px solid var(--border-strong); border-radius:var(--r-pill); overflow:hidden; }
 .count-pill button { width:34px; height:34px; background:var(--surface-2); color:var(--text); font-size:17px; }
 .count-pill span { min-width:84px; text-align:center; font-weight:700; font-size:13px; }
@@ -238,11 +240,27 @@ body {
 .gcard .gc-head { font-size:12px; color:var(--text-muted); margin-bottom:8px; }
 .gcard .gc-teams { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:6px; }
 .gcard .gc-sets { font-weight:800; color:var(--accent); font-size:14px; flex:none; }
-.gcard .gc-row { display:flex; align-items:center; justify-content:center; gap:8px; margin-top:6px; }
-.gcard .gc-set-no { font-size:11px; color:var(--text-muted); width:40px; flex:none; }
+/* 세트 점수 입력 — [입력]:[입력] 묶음을 정확히 가운데로, 세트번호는 왼쪽에 띄움 */
+.gcard .gc-row { position:relative; display:flex; align-items:center; justify-content:center; gap:8px; margin-top:6px; }
+.gcard .gc-set-no { position:absolute; left:0; top:50%; transform:translateY(-50%); font-size:11px; color:var(--text-muted); flex:none; }
+.gcard .gc-row > .muted { width:8px; text-align:center; flex:none; }
 .gcard .gc-name { font-weight:600; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .gcard .gc-score-in { width:52px; text-align:center; padding:7px; border-radius:8px; border:1px solid var(--border-strong);
   background:var(--surface); color:var(--text); font-weight:700; }
+
+/* 체크박스 행 (3·4위전 등) */
+.check-row { display:flex; align-items:center; gap:10px; padding:11px 12px; border:1px solid var(--border-strong);
+  border-radius:var(--r-ctrl); background:var(--surface-2); cursor:pointer; font-weight:600; font-size:14px; }
+.check-row input { width:18px; height:18px; accent-color:var(--accent-strong); cursor:pointer; flex:none; }
+
+/* 결승 세트수 조정 컨트롤 */
+.setcount-ctrl { display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:8px;
+  padding:6px; border:1px dashed var(--border-strong); border-radius:var(--r-ctrl); }
+.setcount-ctrl button { width:30px; height:30px; border-radius:8px; border:1px solid var(--border-strong);
+  background:var(--surface); color:var(--text); font-size:16px; font-weight:700; cursor:pointer; }
+.setcount-ctrl button:hover:not(:disabled) { border-color:var(--accent); color:var(--accent); }
+.setcount-ctrl button:disabled { opacity:.4; cursor:not-allowed; }
+.setcount-ctrl b { min-width:78px; text-align:center; font-size:13px; }
 
 /* 경기 기록 복기 행 */
 .rec-match { display:flex; align-items:center; gap:8px; padding:9px 12px; border:1px solid var(--border); border-radius:var(--r-ctrl); margin-bottom:7px; background:var(--surface-2); }

@@ -1,14 +1,21 @@
 import { matchWinner } from '../lib/match.js'
 
 // 경기 승자 id. 점수가 있으면 점수로, 없으면 직접 지정(pick)으로. 자동 부전승 없음.
+// 매치별 bestOf override(m.bestOf, 결승 세트수 조정용)가 있으면 그걸 우선.
 function winnerOf(m, settings) {
   if (!m) return null
   if (m.games?.length) {
-    const w = matchWinner(m.games, settings.bestOf)
+    const w = matchWinner(m.games, m.bestOf || settings.bestOf)
     return w === 'A' ? m.teamA : w === 'B' ? m.teamB : null
   }
   if (m.pick) return m.pick
   return null
+}
+
+// 경기 패자 id (승자가 정해졌고 두 팀이 모두 있을 때만). 3·4위전 진출에 사용.
+function loserOf(m) {
+  if (!m || !m.winner || !m.teamA || !m.teamB) return null
+  return m.winner === m.teamA ? m.teamB : m.teamA
 }
 
 const newMatch = (id, round, slot, srcA, srcB) => ({
@@ -59,7 +66,20 @@ export function generate(teams, settings = { bestOf: 1 }) {
   }
 
   const labels = buildLabels(rounds.length)
-  return recompute({ structure: { rounds, labels }, matches }, settings)
+  const structure = { rounds, labels }
+
+  // 3·4위전(동메달 결정전): 준결승 두 패자가 맞붙는 별도 경기. rounds엔 넣지 않고 별도 참조.
+  if (settings.thirdPlace && rounds.length >= 2) {
+    const finalMatch = matches.find(m => m.id === rounds.at(-1)[0])
+    const sa = finalMatch?.srcA?.match, sb = finalMatch?.srcB?.match
+    if (sa && sb) {
+      const tp = newMatch(newId(), rounds.length - 1, 0, { loserOf: sa }, { loserOf: sb })
+      matches.push(tp)
+      structure.thirdPlace = tp.id
+    }
+  }
+
+  return recompute({ structure, matches }, settings)
 }
 
 // 저장된 결과(games/pick)로부터 전체 대진을 재유도(멱등).
@@ -70,6 +90,7 @@ export function recompute(state, settings = { bestOf: 1 }) {
     if (!src) return null
     if (src.team) return src.team
     if (src.match) return winnerOf(byId(src.match), settings)
+    if (src.loserOf) return loserOf(byId(src.loserOf)) // 3·4위전: 준결승 패자
     return null
   }
   for (const m of next.matches) { // matches는 라운드 순서로 저장됨
@@ -89,6 +110,14 @@ export function applyResult(state, matchId, games, settings) {
   const m = next.matches.find(x => x.id === matchId)
   if (!m) return next
   m.games = games; m.pick = null
+  return recompute(next, settings)
+}
+
+// 매치별 세트수(bestOf) 조정 — 결승만 다른 판수로 진행할 때. 홀수 1~9.
+export function setMatchBestOf(state, matchId, bestOf, settings) {
+  const next = structuredClone(state)
+  const m = next.matches.find(x => x.id === matchId)
+  if (m) m.bestOf = bestOf
   return recompute(next, settings)
 }
 
@@ -113,7 +142,10 @@ export function standings(state) {
   const champion = isComplete(state)
     ? state.matches.find(m => m.id === state.structure.rounds.at(-1)[0]).winner
     : null
-  return { champion }
+  // 3·4위전이 있으면 그 승자가 3위
+  const tpId = state.structure.thirdPlace
+  const third = tpId ? (state.matches.find(m => m.id === tpId)?.winner || null) : null
+  return { champion, third }
 }
 
-export default { generate, recompute, applyResult, pickWinner, isComplete, standings }
+export default { generate, recompute, applyResult, pickWinner, setMatchBestOf, isComplete, standings }
