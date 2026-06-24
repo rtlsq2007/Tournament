@@ -281,10 +281,15 @@ body {
 .rec-set b.w { color:var(--accent); }
 
 @media (max-width: 900px) {
-  .editor { grid-template-columns:1fr; grid-template-rows:58px auto 1fr; grid-template-areas:"top" "panel" "bracket"; }
+  /* 모바일: 고정 높이 대신 문서 전체가 자연스럽게 스크롤 (대진표가 패널 아래로 이어짐) */
+  .editor { grid-template-columns:1fr; grid-template-rows:auto; grid-template-areas:"top" "panel" "bracket";
+    height:auto; min-height:100svh; }
+  .editor-top { position:sticky; top:0; z-index:15; }
   .editor-rail { position:fixed; bottom:0; left:0; right:0; z-index:20; flex-direction:row; justify-content:space-around;
     grid-area:unset; border-right:none; border-top:1px solid var(--border); padding:6px 0; }
-  .editor-panel { border-right:none; }
+  .editor-panel { border-right:none; overflow:visible; }
+  .editor-bracket { overflow-x:auto; min-height:62svh; padding-bottom:86px; } /* 하단 탭바 가림 방지 */
+  .bracket-toolbar { position:static; } /* 페이지 스크롤이므로 sticky 해제 */
 }
 
 /* ===== 팀 단위 참가자 편집 (상세입력) ===== */
