@@ -73,9 +73,9 @@ export default function ParticipantsTab({ participants, setParticipants, teams, 
           <span>{participants.length}명{step === 2 ? ` · ${teams.length}팀` : ''}</span>
           <button onClick={addStep} aria-label={`${step}명 늘리기`}>＋</button>
         </div>
-        <div className="row" style={{ gap: 6 }}>
-          <button className="btn" onClick={() => doShuffle('auto')} title="실력(별점) 균형으로 팀 구성">⚖️ 밸런스</button>
-          <button className="btn" onClick={() => doShuffle('random')} title="완전 무작위로 팀 구성">🔀 일반</button>
+        <div className="shuffle-group">
+          <button className="btn btn-sm" onClick={() => doShuffle('auto')} title="실력(별점) 균형으로 팀 구성">⚖️ 밸런스</button>
+          <button className="btn btn-sm" onClick={() => doShuffle('random')} title="완전 무작위로 팀 구성">🔀 일반</button>
         </div>
       </div>
 

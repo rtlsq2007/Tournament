@@ -137,6 +137,8 @@ body {
 
 /* ===== 큰 액션 버튼 ===== */
 .btn-lg { width:100%; padding:14px; font-size:16px; }
+.btn-sm { padding:8px 12px; font-size:13px; white-space:nowrap; }
+.shuffle-group { display:flex; gap:6px; flex:none; }
 
 /* ===== 최근 대회 행 ===== */
 .recent-row { display:flex; align-items:center; justify-content:space-between; padding:13px 14px; border:1px solid var(--border);

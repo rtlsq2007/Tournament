@@ -65,7 +65,10 @@ export default function Bracket({ state, teams, participants = [], highlightTeam
     const team = teamId ? teamById(teamId) : null
     const waiting = !teamId && src?.match
     const hi = highlightTeamIds.includes(teamId)
-    if (!team) return <div className={`bteam empty ${isWin ? 'win' : ''}`}><span className="bteam-player muted">{waiting ? '승자 진출 대기' : ''}</span></div>
+    if (!team) {
+      if (!waiting) return null // 상대 없는 빈 자리는 표시하지 않음
+      return <div className={`bteam empty ${isWin ? 'win' : ''}`}><span className="bteam-player muted">승자 진출 대기</span></div>
+    }
     const names = playerNames(team)
     const ids = team.playerIds
     if (teamMode) { // 복식/혼복: 1인 팀이어도 팀 헤더 + 선수 박스
