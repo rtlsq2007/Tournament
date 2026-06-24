@@ -95,8 +95,8 @@ export default function AdminView() {
     if (demo || !data || !token || !work) return
     const t = setTimeout(() => {
       const payload = {
-        name: data.name, format: data.format, matchType: data.matchType, pairingMode: data.pairingMode,
-        status: data.status, settings: data.settings,
+        name: data.name, sport: data.sport, format: data.format, matchType: data.matchType, pairingMode: data.pairingMode,
+        status: data.status, settings: data.settings, records: data.records || [],
         participants, teams, structure: work.structure, matches: work.matches,
       }
       putTournament(id, token, payload, data.name, baseUpdatedAtRef.current)
@@ -247,7 +247,7 @@ export default function AdminView() {
         )}
 
         {tab === 'record' && (
-          <RecordView data={data} teams={teams} participants={participants} work={work} />
+          <RecordView data={data} setData={setData} teams={teams} participants={participants} work={work} />
         )}
 
         {tab === 'share' && (
@@ -354,8 +354,10 @@ function ResultCard({ match, teams, participants, bestOf, onResult, onPick }) {
   )
 }
 
-// 경기 기록(복기): 라운드별 결과 + JSON 저장
-function RecordView({ data, teams, participants, work }) {
+// 경기 기록: 현재 진행 상황을 스냅샷으로 저장하고, 저장된 기록을 열람.
+function RecordView({ data, setData, teams, participants, work }) {
+  const [open, setOpen] = useState(null)
+  const records = data.records || []
   const teamLabel = id => {
     const t = teams.find(x => x.id === id)
     if (!t) return '—'
@@ -373,51 +375,68 @@ function RecordView({ data, teams, participants, work }) {
   const labels = work?.structure?.labels || []
   const champion = rounds.length ? work.matches.find(x => x.id === rounds.at(-1)[0])?.winner : null
 
-  const download = () => {
-    const record = {
-      name: data.name || '대회', sport: data.sport, format: data.format, matchType: data.matchType,
-      savedAt: new Date().toISOString(), settings: data.settings,
-      teams: teams.map(t => ({ no: t.no, name: t.label || `${t.no}팀`, players: t.playerIds.map(id => participants.find(p => p.id === id)?.name) })),
-      rounds: rounds.map((round, ri) => ({
-        round: labels[ri],
-        matches: round.map(mid => {
-          const m = work.matches.find(x => x.id === mid)
-          return { teamA: teamLabel(m.teamA), teamB: m.teamB ? teamLabel(m.teamB) : null, games: m.games, winner: m.winner ? teamLabel(m.winner) : null }
-        }),
-      })),
-      champion: champion ? teamLabel(champion) : null,
-    }
-    const blob = new Blob([JSON.stringify(record, null, 2)], { type: 'application/json' })
+  // 현재 상태를 이름·점수까지 고정한 스냅샷으로 변환
+  const snapshot = () => ({
+    id: Date.now(),
+    savedAt: new Date().toLocaleString('ko-KR'),
+    name: data.name || '대회', matchType: data.matchType,
+    teams: teams.map(t => ({ no: t.no, name: t.label?.trim() || `${t.no}팀`, players: t.playerIds.map(id => participants.find(p => p.id === id)?.name || '?') })),
+    rounds: rounds.map((round, ri) => ({
+      round: labels[ri],
+      matches: round.filter(mid => { const m = work.matches.find(x => x.id === mid); return m.teamA || m.teamB }).map(mid => {
+        const m = work.matches.find(x => x.id === mid)
+        return { a: teamLabel(m.teamA), b: m.teamB ? teamLabel(m.teamB) : '—', score: setScore(m) || (m.status === 'done' ? '부전승' : 'vs'), winner: m.winner ? teamLabel(m.winner) : null }
+      }),
+    })),
+    champion: champion ? teamLabel(champion) : null,
+  })
+  const saveRecord = () => setData({ ...data, records: [snapshot(), ...records] })
+  const deleteRecord = id => setData({ ...data, records: records.filter(r => r.id !== id) })
+  const downloadRecord = r => {
+    const blob = new Blob([JSON.stringify(r, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
-    a.href = url; a.download = `${data.name || '대회'}-경기기록.json`; a.click()
+    a.href = url; a.download = `${r.name}-${r.savedAt}.json`.replace(/[:/]/g, '-'); a.click()
     URL.revokeObjectURL(url)
-  }
-
-  if (!rounds.length) {
-    return <div><div className="panel-title">경기 기록</div><div className="muted small">대진표가 만들어지면 기록이 표시됩니다.</div></div>
   }
 
   return (
     <div>
       <div className="panel-title">경기 기록</div>
-      <div className="panel-hint">진행·완료된 경기의 복기입니다. JSON으로 저장해 보관할 수 있어요.</div>
-      <button className="btn btn-primary" style={{ width: '100%', marginBottom: 14 }} onClick={download}>📥 기록 JSON 저장</button>
-      {champion && <div className="card" style={{ textAlign: 'center', fontSize: 16 }}>🏆 우승 — <strong>{teamLabel(champion)}</strong></div>}
-      {rounds.map((round, ri) => (
-        <div className="rgroup" key={ri}>
-          <div className="rg-title">{labels[ri]}</div>
-          {round.map(mid => {
-            const m = work.matches.find(x => x.id === mid)
-            if (!m.teamA && !m.teamB) return null
-            return (
-              <div className="rec-match" key={mid}>
-                <span className={`rec-team ${m.winner === m.teamA ? 'win' : ''}`}>{teamLabel(m.teamA)}</span>
-                <span className="rec-score">{setScore(m) || (m.status === 'done' ? '부전승' : 'vs')}</span>
-                <span className={`rec-team right ${m.winner === m.teamB ? 'win' : ''}`}>{m.teamB ? teamLabel(m.teamB) : '—'}</span>
-              </div>
-            )
-          })}
+      <div className="panel-hint">지금 진행 상황을 저장하면 아래 목록에 남고, 눌러서 복기할 수 있어요. (새로고침해도 유지)</div>
+      <button className="btn btn-primary" style={{ width: '100%', marginBottom: 14 }}
+        onClick={saveRecord} disabled={!rounds.length}>💾 현재 경기 저장</button>
+
+      {records.length === 0 && <div className="muted small">아직 저장된 기록이 없습니다. 위 버튼으로 현재 경기를 저장하세요.</div>}
+
+      {records.map(r => (
+        <div className="card" key={r.id} style={{ padding: 12 }}>
+          <div className="row-between" style={{ cursor: 'pointer' }} onClick={() => setOpen(open === r.id ? null : r.id)}>
+            <div style={{ minWidth: 0 }}>
+              <strong>{r.name}</strong> <span className="muted small">{r.savedAt}</span>
+            </div>
+            <div className="row" style={{ gap: 6, flex: 'none' }}>
+              {r.champion && <span className="badge">🏆 {r.champion}</span>}
+              <button className="icon-btn" title="JSON 저장" onClick={e => { e.stopPropagation(); downloadRecord(r) }}>📥</button>
+              <button className="icon-btn" title="삭제" onClick={e => { e.stopPropagation(); deleteRecord(r.id) }}>🗑</button>
+            </div>
+          </div>
+          {open === r.id && (
+            <div style={{ marginTop: 10 }}>
+              {r.rounds.map((rd, i) => (
+                <div className="rgroup" key={i}>
+                  <div className="rg-title">{rd.round}</div>
+                  {rd.matches.map((mt, j) => (
+                    <div className="rec-match" key={j}>
+                      <span className={`rec-team ${mt.winner === mt.a ? 'win' : ''}`}>{mt.a}</span>
+                      <span className="rec-score">{mt.score}</span>
+                      <span className={`rec-team right ${mt.winner === mt.b ? 'win' : ''}`}>{mt.b}</span>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       ))}
     </div>
