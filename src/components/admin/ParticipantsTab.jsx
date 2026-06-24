@@ -1,9 +1,12 @@
 import { useState } from 'react'
 import { useSwap } from './useSwap.jsx'
 import { pairTeams } from '../../lib/balancer.js'
+import { aiBalance } from '../../lib/api.js'
 
 let _pid = 0
 const newPid = () => `p${Date.now().toString(36)}_${++_pid}`
+let _tid = 0
+const newTid = () => `t${Date.now().toString(36)}_${++_tid}`
 const mkP = name => ({ id: newPid(), name, tier: 3, gender: 'M', checkedIn: true })
 
 // 별점: 마우스 올린 지점까지 연하게 미리보기, 누르면 설정
@@ -68,6 +71,34 @@ export default function ParticipantsTab({ participants, setParticipants, teams, 
     return fresh.map((t, i) => prev[i]?.label ? { ...t, label: prev[i].label } : t)
   })
 
+  // AI 밸런스: 라켓단 장단점 + 별점을 LLM에 보내 균형 팀 구성. 실패 시 별점 밸런스로 폴백.
+  const [aiBusy, setAiBusy] = useState(false)
+  const aiBalanceTeams = async () => {
+    const active = participants.filter(p => p.checkedIn)
+    const teamSize = matchType === 'singles' ? 1 : 2
+    if (active.length < teamSize) return
+    setAiBusy(true)
+    try {
+      const players = active.map(p => {
+        const mem = members.find(m => m.id === p.memberId) || members.find(m => m.name === p.name)
+        return { name: p.name, tier: p.tier, strengths: mem?.strengths, weaknesses: mem?.weaknesses }
+      })
+      const aiTeams = await aiBalance(players, teamSize)
+      const flat = aiTeams.flat()
+      const ok = aiTeams.length > 0 && flat.length === active.length && new Set(flat).size === active.length && flat.every(ix => ix >= 0 && ix < active.length)
+      if (!ok) throw new Error('AI 배정이 불완전했습니다.')
+      setTeams(prev => aiTeams.map((idxs, i) => {
+        const ids = idxs.map(ix => active[ix].id)
+        return { id: newTid(), no: i + 1, label: prev[i]?.label || '', playerIds: ids, tierSum: ids.reduce((s, id) => s + (active.find(p => p.id === id)?.tier || 0), 0) }
+      }))
+    } catch (e) {
+      doShuffle('auto')
+      alert((e.message || 'AI 밸런스 실패') + '\n→ 별점 기반 밸런스로 대체했어요.')
+    } finally {
+      setAiBusy(false)
+    }
+  }
+
   const renameTeam = (id, label) => setTeams(teams.map(t => t.id === id ? { ...t, label } : t))
   const setTier = (pid, tier) => setParticipants(participants.map(p => p.id === pid ? { ...p, tier } : p))
 
@@ -83,6 +114,8 @@ export default function ParticipantsTab({ participants, setParticipants, teams, 
           <button onClick={addStep} aria-label={`${step}명 늘리기`}>＋</button>
         </div>
         <div className="shuffle-group">
+          <button className="btn btn-sm" onClick={aiBalanceTeams} disabled={aiBusy}
+            title="AI가 장단점·별점을 고려해 균형 구성">{aiBusy ? '🤖…' : '🤖 AI'}</button>
           <button className="btn btn-sm" onClick={() => doShuffle('auto')} title="실력(별점) 균형으로 팀 구성">⚖️ 밸런스</button>
           <button className="btn btn-sm" onClick={() => doShuffle('random')} title="완전 무작위로 팀 구성">🔀 일반</button>
         </div>

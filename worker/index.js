@@ -21,6 +21,8 @@ async function handleApi(request, env, url) {
       if (request.method === 'PUT') return await putMembers(request, env)
       return json({ error: 'method not allowed' }, 405)
     }
+    // AI 밸런싱
+    if (url.pathname === '/api/balance' && request.method === 'POST') return await balanceTeams(request, env)
   } catch (e) {
     return json({ error: String(e?.message || e) }, 500)
   }
@@ -95,4 +97,38 @@ async function putMembers(request, env) {
   await env.DB.prepare("INSERT INTO app_kv (k, v) VALUES ('members', ?) ON CONFLICT(k) DO UPDATE SET v=excluded.v")
     .bind(JSON.stringify(members)).run()
   return json({ ok: true, count: members.length })
+}
+
+// ===== AI 밸런싱 (Gemini) =====
+async function balanceTeams(request, env) {
+  if (!env.GEMINI_API_KEY) return json({ error: 'AI 키가 설정되지 않았습니다. (GEMINI_API_KEY)' }, 503)
+  const body = await request.json()
+  const players = Array.isArray(body.players) ? body.players : []
+  const teamSize = body.teamSize === 1 ? 1 : 2
+  const teamCount = Math.floor(players.length / teamSize)
+  if (teamCount < 1) return json({ error: '선수가 부족합니다.' }, 400)
+
+  const lines = players.map((p, i) =>
+    `${i}: ${p.name} (실력 ${p.tier}/5)${p.strengths ? ` 장점:${p.strengths}` : ''}${p.weaknesses ? ` 단점:${p.weaknesses}` : ''}`
+  ).join('\n')
+  const prompt = `너는 배드민턴 대회 운영자야. 아래 선수들을 ${teamCount}개의 ${teamSize}인 팀으로, 팀 간 전력이 최대한 균형되도록 나눠줘.
+실력(별점)과 장단점을 종합 고려하고, 서로의 단점을 보완하는 조합을 우선해. 각 팀의 전력 합이 비슷하도록 해.
+모든 선수를 정확히 한 번씩만 배정해. 반드시 아래 JSON 형식만 출력(설명 금지):
+{"teams":[[선수인덱스, ...], ...]}
+
+선수목록:
+${lines}`
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${env.GEMINI_API_KEY}`
+  const r = await fetch(url, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: 'application/json', temperature: 0.8 } }),
+  })
+  if (!r.ok) return json({ error: 'AI 호출 실패: ' + (await r.text()).slice(0, 180) }, 502)
+  const d = await r.json()
+  const text = d?.candidates?.[0]?.content?.parts?.[0]?.text
+  if (!text) return json({ error: 'AI 응답이 비었습니다.' }, 502)
+  let parsed
+  try { parsed = JSON.parse(text) } catch { return json({ error: 'AI 응답 형식 오류' }, 502) }
+  return json({ teams: Array.isArray(parsed.teams) ? parsed.teams : [] })
 }

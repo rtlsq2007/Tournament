@@ -38,6 +38,16 @@ export async function putMembers(members) {
   return r.json()
 }
 
+// AI 밸런싱: players [{name,tier,strengths,weaknesses}] → [[선수인덱스,...], ...]
+export async function aiBalance(players, teamSize) {
+  const r = await fetch('/api/balance', {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ players, teamSize }),
+  })
+  const d = await r.json().catch(() => ({}))
+  if (!r.ok) throw new Error(d.error || 'AI 밸런스 실패')
+  return d.teams || []
+}
+
 export function usePolling(id, intervalMs = 4000) {
   const [state, setState] = useState(null)
   const [error, setError] = useState(null)
