@@ -34,7 +34,8 @@ async function createTournament(request, env) {
   const admin_token = secretToken()
   const now = Date.now()
   const data = {
-    name: body.name || '', format: body.format, matchType: body.matchType, pairingMode: body.pairingMode,
+    name: body.name || '', sport: body.sport || 'badminton',
+    format: body.format, matchType: body.matchType, pairingMode: body.pairingMode,
     status: 'setup', settings: body.settings || {},
     participants: [], teams: [], structure: { rounds: [], labels: [] }, matches: [],
   }

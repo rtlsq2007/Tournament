@@ -2,6 +2,12 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { createTournament } from '../lib/api.js'
 
+const SPORTS = [
+  { key: 'badminton', ico: '🏸', label: '배드민턴', ready: true },
+  { key: 'soccer', ico: '⚽', label: '축구', ready: false },
+  { key: 'basketball', ico: '🏀', label: '농구', ready: false },
+  { key: 'volleyball', ico: '🏐', label: '배구', ready: false },
+]
 const FORMATS = [
   { key: 'single_elim', label: '싱글 엘리미네이션', ready: true },
   { key: 'group_knockout', label: '조별리그→본선', ready: false },
@@ -15,7 +21,7 @@ const MATCH_TYPES = [
 ]
 const PAIRING = [
   { key: 'auto', label: '자동 밸런싱' },
-  { key: 'manual', label: '직접 입력' },
+  { key: 'manual', label: '직접 구성' },
 ]
 const BEST_OF = [
   { v: 1, label: '단판' },
@@ -25,12 +31,12 @@ const BEST_OF = [
 
 export default function Home() {
   const nav = useNavigate()
+  const [sport, setSport] = useState('badminton')
   const [name, setName] = useState('')
   const [format, setFormat] = useState('single_elim')
   const [matchType, setMatchType] = useState('doubles')
   const [pairingMode, setPairingMode] = useState('manual')
   const [bestOf, setBestOf] = useState(1)
-  const [courts, setCourts] = useState(2)
   const [busy, setBusy] = useState(false)
   const recent = JSON.parse(localStorage.getItem('recent_tournaments') || '[]')
 
@@ -38,8 +44,8 @@ export default function Home() {
     setBusy(true)
     try {
       const { id, adminToken } = await createTournament({
-        name, format, matchType, pairingMode,
-        settings: { pointsToWin: 21, bestOf, courts },
+        name, sport, format, matchType, pairingMode,
+        settings: { pointsToWin: 21, bestOf },
       })
       const list = [{ id, name, token: adminToken }, ...recent].slice(0, 10)
       localStorage.setItem('recent_tournaments', JSON.stringify(list))
@@ -54,16 +60,30 @@ export default function Home() {
     <div className="app">
       <div className="topbar">
         <div className="brand">
-          <div className="brand-mark">🏸</div>
+          <div className="brand-mark">🏆</div>
           <div>
-            <div className="brand-title">배드민턴 토너먼트</div>
+            <div className="brand-title">토너먼트 메이커</div>
             <div className="brand-sub">대진 · 점수 · 실시간 관전</div>
           </div>
         </div>
       </div>
 
       <div className="card">
-        <h2 className="h2">새 대회 만들기</h2>
+        <h2 className="h2">어떤 종목의 대진표를 만들까요?</h2>
+        <div className="sport-grid">
+          {SPORTS.map(s => (
+            <button key={s.key} className={`sport-card ${sport === s.key ? 'active' : ''}`} disabled={!s.ready}
+              onClick={() => s.ready && setSport(s.key)} title={s.ready ? '' : '준비 중'}>
+              <span className="sport-ico">{s.ico}</span>
+              <span className="sport-name">{s.label}</span>
+              {!s.ready && <span className="sport-soon">준비중</span>}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="card">
+        <h2 className="h2">🏸 배드민턴 대회 만들기</h2>
 
         <div className="field">
           <label>대회 이름</label>
@@ -94,7 +114,7 @@ export default function Home() {
         </div>
 
         <div className="field">
-          <label>팀 구성</label>
+          <label>{matchType === 'singles' ? '매칭 밸런싱' : '팀 구성'}</label>
           <div className="seg">
             {PAIRING.map(p => (
               <button key={p.key} className={pairingMode === p.key ? 'active' : ''}
@@ -110,15 +130,6 @@ export default function Home() {
               <button key={b.v} className={bestOf === b.v ? 'active' : ''}
                 onClick={() => setBestOf(b.v)}>{b.label}</button>
             ))}
-          </div>
-        </div>
-
-        <div className="row-between" style={{ marginTop: 'var(--sp-2)' }}>
-          <label className="small" style={{ fontWeight: 600, color: 'var(--text-muted)' }}>코트 수</label>
-          <div className="stepper">
-            <button onClick={() => setCourts(c => Math.max(1, c - 1))}>−</button>
-            <span>{courts}</span>
-            <button onClick={() => setCourts(c => Math.min(12, c + 1))}>＋</button>
           </div>
         </div>
 
