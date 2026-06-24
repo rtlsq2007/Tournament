@@ -1,9 +1,11 @@
 name = "ckment"
+main = "worker/index.js"
 compatibility_date = "2024-12-01"
 
 # 정적 사이트(빌드 결과 dist)를 워커 자산으로 서빙. SPA 라우팅(/t/:id/admin 등)을 위해 단일 페이지 폴백.
 [assets]
 directory = "./dist"
+binding = "ASSETS"
 not_found_handling = "single-page-application"
 
 # D1은 데이터베이스 생성 후 활성화 (지금은 데모가 백엔드 없이 동작).
