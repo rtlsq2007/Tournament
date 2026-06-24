@@ -1,8 +1,14 @@
 // Cloudflare Worker: /api/* 는 D1 백엔드 처리, 그 외는 정적 자산(SPA) 서빙.
 import { shortId, secretToken } from '../src/lib/id.js'
+import { signSession, verifySession, getCookie, sessionSetCookie, sessionClearCookie, timingSafeEqual } from './auth.js'
 
 const json = (data, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } })
+
+const unauthorized = () => json({ error: 'unauthorized' }, 401)
+// 세션 쿠키 검증 → payload({sub,exp}) 또는 null
+const requireAuth = (request, env) =>
+  verifySession(env.SESSION_SECRET, getCookie(request.headers.get('Cookie'), 'sess'))
 
 export default {
   async fetch(request, env) {
@@ -13,22 +19,33 @@ export default {
 }
 
 async function handleApi(request, env, url) {
+  // 인증 (DB 불필요)
+  if (url.pathname === '/api/login' && request.method === 'POST') return await login(request, env)
+  if (url.pathname === '/api/logout' && request.method === 'POST') return logout()
+  if (url.pathname === '/api/me') return await me(request, env)
+
   if (!env.DB) return json({ error: 'DB not configured' }, 503)
   try {
-    // 라켓단 멤버 DB (동아리 공용)
+    const authed = await requireAuth(request, env)
+    // 라켓단 멤버 DB (동아리 공용 — 운영자만)
     if (url.pathname === '/api/members') {
+      if (!authed) return unauthorized()
       if (request.method === 'GET') return await getMembers(env)
       if (request.method === 'PUT') return await putMembers(request, env)
       return json({ error: 'method not allowed' }, 405)
     }
-    // 경기 기록 보관함 (클럽 공용 — 모든 대회 결과 누적)
+    // 경기 기록 보관함 (클럽 공용 — 운영자만)
     if (url.pathname === '/api/records') {
+      if (!authed) return unauthorized()
       if (request.method === 'GET') return await getKvList(env, 'records')
       if (request.method === 'PUT') return await putKvList(request, env, 'records')
       return json({ error: 'method not allowed' }, 405)
     }
-    // AI 밸런싱
-    if (url.pathname === '/api/balance' && request.method === 'POST') return await balanceTeams(request, env)
+    // AI 밸런싱 (운영자만 — 쿼터 보호)
+    if (url.pathname === '/api/balance' && request.method === 'POST') {
+      if (!authed) return unauthorized()
+      return await balanceTeams(request, env)
+    }
   } catch (e) {
     return json({ error: String(e?.message || e) }, 500)
   }
@@ -36,13 +53,39 @@ async function handleApi(request, env, url) {
   if (!m) return json({ error: 'not found' }, 404)
   const id = m[1]
   try {
-    if (!id && request.method === 'POST') return await createTournament(request, env)
+    // 생성·저장은 로그인 필요. 읽기(GET)는 공개(참가자 관전).
+    if (!id && request.method === 'POST') return (await requireAuth(request, env)) ? await createTournament(request, env) : unauthorized()
     if (id && request.method === 'GET') return await getTournament(env, id, url)
-    if (id && request.method === 'PUT') return await putTournament(request, env, id)
+    if (id && request.method === 'PUT') return (await requireAuth(request, env)) ? await putTournament(request, env, id) : unauthorized()
   } catch (e) {
     return json({ error: String(e?.message || e) }, 500)
   }
   return json({ error: 'method not allowed' }, 405)
+}
+
+// ===== 인증 (단일 관리자 비밀번호 → 서명 세션 쿠키) =====
+async function login(request, env) {
+  if (!env.ADMIN_PASSWORD || !env.SESSION_SECRET)
+    return json({ error: '로그인이 설정되지 않았습니다. (ADMIN_PASSWORD / SESSION_SECRET secret 필요)' }, 503)
+  const body = await request.json().catch(() => ({}))
+  const pw = String(body.password || '')
+  if (!timingSafeEqual(pw, env.ADMIN_PASSWORD)) {
+    await new Promise(r => setTimeout(r, 350)) // 무차별 대입 완화
+    return json({ error: '비밀번호가 올바르지 않습니다.' }, 401)
+  }
+  const token = await signSession(env.SESSION_SECRET, 'admin')
+  return new Response(JSON.stringify({ ok: true }), {
+    status: 200, headers: { 'content-type': 'application/json', 'Set-Cookie': sessionSetCookie(token, 30 * 24 * 3600) },
+  })
+}
+function logout() {
+  return new Response(JSON.stringify({ ok: true }), {
+    status: 200, headers: { 'content-type': 'application/json', 'Set-Cookie': sessionClearCookie() },
+  })
+}
+async function me(request, env) {
+  const s = await requireAuth(request, env)
+  return json({ authed: !!s, sub: s?.sub || null, configured: !!(env.ADMIN_PASSWORD && env.SESSION_SECRET) })
 }
 
 // 새 대회 생성 → { id, adminToken }
@@ -72,11 +115,10 @@ async function getTournament(env, id, url) {
   return json({ id: row.id, name: row.name, updatedAt: row.updated_at, data: JSON.parse(row.data_json) })
 }
 
-// 상태 저장 (admin_token 필요). 낙관적 동시성(baseUpdatedAt).
+// 상태 저장 (세션 인증은 라우트에서 처리). 낙관적 동시성(baseUpdatedAt).
 async function putTournament(request, env, id) {
   const row = await env.DB.prepare('SELECT * FROM tournaments WHERE id=?').bind(id).first()
   if (!row) return json({ error: 'not found' }, 404)
-  if (request.headers.get('x-admin-token') !== row.admin_token) return json({ error: 'forbidden' }, 403)
   const body = await request.json()
   if (body.baseUpdatedAt && body.baseUpdatedAt < row.updated_at) {
     return json({ conflict: true, updatedAt: row.updated_at, data: JSON.parse(row.data_json) }, 409)

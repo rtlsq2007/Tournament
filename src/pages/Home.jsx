@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { createTournament } from '../lib/api.js'
+import { createTournament, logout } from '../lib/api.js'
 import { todayName } from '../lib/date.js'
 
 const SPORTS = [
@@ -27,19 +27,22 @@ export default function Home() {
     try {
       // 기본값으로 대회 생성 → 상세 설정은 편집기(경기정보 탭)에서
       const name = todayName() // 오늘 날짜 기준 기본 대회명
-      const { id, adminToken } = await createTournament({
+      const { id } = await createTournament({
         name, sport,
         format: 'single_elim', matchType: 'doubles', pairingMode: 'manual',
         settings: { pointsToWin: 21, bestOf: 1 },
       })
-      const list = [{ id, name, token: adminToken }, ...recent].slice(0, 10)
+      const list = [{ id, name }, ...recent.filter(r => r.id !== id)].slice(0, 10)
       localStorage.setItem('recent_tournaments', JSON.stringify(list))
-      nav(`/t/${id}/admin?token=${adminToken}`)
+      nav(`/t/${id}/admin`)
     } catch (e) {
+      if (e.auth) { window.location.reload(); return } // 세션 만료 → 로그인 화면
       alert('대회 생성 실패: ' + e.message)
       setBusy(false)
     }
   }
+
+  const doLogout = async () => { await logout(); window.location.reload() }
 
   return (
     <div className="app">
@@ -51,6 +54,7 @@ export default function Home() {
             <div className="brand-sub">대진 · 점수 · 실시간 관전</div>
           </div>
         </div>
+        <button className="btn btn-ghost btn-sm" onClick={doLogout}>로그아웃</button>
       </div>
 
       <div className="card">
@@ -74,7 +78,7 @@ export default function Home() {
           <h2 className="h2">최근 대회 <span className="muted small">운영자</span></h2>
           {recent.map(r => (
             <div key={r.id} className="recent-row">
-              <a className="recent-link" href={`/t/${r.id}/admin?token=${r.token}`}>
+              <a className="recent-link" href={`/t/${r.id}/admin`}>
                 <span>{r.name || '(이름 없음)'}</span>
                 <span className="meta">{r.id} →</span>
               </a>

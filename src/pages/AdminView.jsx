@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { QRCodeCanvas } from 'qrcode.react'
-import { getTournament, putTournament, getMembers, putMembers, getRecords, putRecords } from '../lib/api.js'
+import { getTournament, putTournament, getMembers, putMembers, getRecords, putRecords, logout } from '../lib/api.js'
 import { getFormat, FORMAT_LABELS } from '../formats/index.js'
 import { pairTeams } from '../lib/balancer.js'
 import { todayName } from '../lib/date.js'
@@ -64,7 +64,6 @@ export default function AdminView() {
   const { id } = useParams()
   const [sp] = useSearchParams()
   const demo = sp.get('demo') === '1'
-  const token = sp.get('token')
   const [tab, setTab] = useState('players')
   const [data, setData] = useState(null)
   const [participants, setParticipants] = useState([])
@@ -107,21 +106,21 @@ export default function AdminView() {
       .catch(e => setError(e.message))
   }, [id, demo])
 
-  // 변경 자동 저장 (디바운스). 데모/토큰없음 제외.
+  // 변경 자동 저장 (디바운스). 데모 제외. 인증은 세션 쿠키로(서버가 강제).
   useEffect(() => {
-    if (demo || !data || !token || !work) return
+    if (demo || !data || !work) return
     const t = setTimeout(() => {
       const payload = {
         name: data.name, sport: data.sport, format: data.format, matchType: data.matchType, pairingMode: data.pairingMode,
         status: data.status, settings: data.settings, records: data.records || [],
         participants, teams, structure: work.structure, matches: work.matches,
       }
-      putTournament(id, token, payload, data.name, baseUpdatedAtRef.current)
+      putTournament(id, payload, data.name, baseUpdatedAtRef.current)
         .then(res => { baseUpdatedAtRef.current = res.updatedAt })
-        .catch(() => {})
+        .catch(e => { if (e.auth) window.location.reload() }) // 세션 만료 → 로그인 화면
     }, 800)
     return () => clearTimeout(t)
-  }, [data, participants, teams, work, demo, token, id])
+  }, [data, participants, teams, work, demo, id])
 
   // 참가자 '구성'이 바뀔 때만 팀 재구성 (인원 추가/삭제·종목·구성방식).
   // 이름/티어만 바뀐 경우(=ID 집합 동일)엔 재구성하지 않아 팀명·드래그 배치가 유지됨.
@@ -231,7 +230,10 @@ export default function AdminView() {
             <div className="brand-sub">{FORMAT_LABELS[data.format]} · {teams.length}팀</div>
           </div>
         </div>
-        <a className="btn btn-primary" href={publicUrl} target="_blank" rel="noreferrer">참가자 화면 ↗</a>
+        <div className="row" style={{ gap: 8 }}>
+          {!demo && <button className="btn btn-ghost btn-sm" onClick={async () => { await logout(); window.location.href = '/' }}>로그아웃</button>}
+          <a className="btn btn-primary" href={publicUrl} target="_blank" rel="noreferrer">참가자 화면 ↗</a>
+        </div>
       </div>
       <ThemeToggle admin />{/* 참가자 화면 버튼 아래 코너에 배치 */}
 
