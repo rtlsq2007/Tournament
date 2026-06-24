@@ -244,6 +244,13 @@ body {
 .gcard .gc-score-in { width:52px; text-align:center; padding:7px; border-radius:8px; border:1px solid var(--border-strong);
   background:var(--surface); color:var(--text); font-weight:700; }
 
+/* 경기 기록 복기 행 */
+.rec-match { display:flex; align-items:center; gap:8px; padding:9px 12px; border:1px solid var(--border); border-radius:var(--r-ctrl); margin-bottom:7px; background:var(--surface-2); }
+.rec-team { flex:1; min-width:0; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.rec-team.right { text-align:right; }
+.rec-team.win { color:var(--accent); }
+.rec-score { flex:none; font-size:13px; font-weight:700; color:var(--text-muted); min-width:66px; text-align:center; }
+
 @media (max-width: 900px) {
   .editor { grid-template-columns:1fr; grid-template-rows:58px auto 1fr; grid-template-areas:"top" "panel" "bracket"; }
   .editor-rail { position:fixed; bottom:0; left:0; right:0; z-index:20; flex-direction:row; justify-content:space-around;

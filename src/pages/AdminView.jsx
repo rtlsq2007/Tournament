@@ -11,6 +11,7 @@ const TABS = [
   { key: 'info', label: '경기정보', ico: '⚙️' },
   { key: 'players', label: '참가자', ico: '👥' },
   { key: 'results', label: '경기판정', ico: '📋' },
+  { key: 'record', label: '경기기록', ico: '📜' },
   { key: 'share', label: '공유', ico: '🔗' },
 ]
 const FORMATS = [
@@ -245,6 +246,10 @@ export default function AdminView() {
           </div>
         )}
 
+        {tab === 'record' && (
+          <RecordView data={data} teams={teams} participants={participants} work={work} />
+        )}
+
         {tab === 'share' && (
           <div>
             <div className="panel-title">공유</div>
@@ -345,6 +350,76 @@ function ResultCard({ match, teams, participants, bestOf, onResult, onPick }) {
         <button className={`btn ${match.winner ? 'btn-primary' : ''}`} style={{ width: '100%', marginTop: 8 }}
           onClick={() => onPick(match.id, match.teamA)}>부전승 진출 →</button>
       )}
+    </div>
+  )
+}
+
+// 경기 기록(복기): 라운드별 결과 + JSON 저장
+function RecordView({ data, teams, participants, work }) {
+  const teamLabel = id => {
+    const t = teams.find(x => x.id === id)
+    if (!t) return '—'
+    if (t.playerIds.length > 1) return t.label?.trim() || `${t.no}팀`
+    return participants.find(p => p.id === t.playerIds[0])?.name || '?'
+  }
+  const setScore = m => {
+    if (!m.games?.length) return ''
+    if (m.games.length === 1) return `${m.games[0].a} : ${m.games[0].b}`
+    const a = m.games.reduce((s, g) => s + (g.a > g.b ? 1 : 0), 0)
+    const b = m.games.reduce((s, g) => s + (g.b > g.a ? 1 : 0), 0)
+    return `${a} : ${b} 세트`
+  }
+  const rounds = work?.structure?.rounds || []
+  const labels = work?.structure?.labels || []
+  const champion = rounds.length ? work.matches.find(x => x.id === rounds.at(-1)[0])?.winner : null
+
+  const download = () => {
+    const record = {
+      name: data.name || '대회', sport: data.sport, format: data.format, matchType: data.matchType,
+      savedAt: new Date().toISOString(), settings: data.settings,
+      teams: teams.map(t => ({ no: t.no, name: t.label || `${t.no}팀`, players: t.playerIds.map(id => participants.find(p => p.id === id)?.name) })),
+      rounds: rounds.map((round, ri) => ({
+        round: labels[ri],
+        matches: round.map(mid => {
+          const m = work.matches.find(x => x.id === mid)
+          return { teamA: teamLabel(m.teamA), teamB: m.teamB ? teamLabel(m.teamB) : null, games: m.games, winner: m.winner ? teamLabel(m.winner) : null }
+        }),
+      })),
+      champion: champion ? teamLabel(champion) : null,
+    }
+    const blob = new Blob([JSON.stringify(record, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = `${data.name || '대회'}-경기기록.json`; a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  if (!rounds.length) {
+    return <div><div className="panel-title">경기 기록</div><div className="muted small">대진표가 만들어지면 기록이 표시됩니다.</div></div>
+  }
+
+  return (
+    <div>
+      <div className="panel-title">경기 기록</div>
+      <div className="panel-hint">진행·완료된 경기의 복기입니다. JSON으로 저장해 보관할 수 있어요.</div>
+      <button className="btn btn-primary" style={{ width: '100%', marginBottom: 14 }} onClick={download}>📥 기록 JSON 저장</button>
+      {champion && <div className="card" style={{ textAlign: 'center', fontSize: 16 }}>🏆 우승 — <strong>{teamLabel(champion)}</strong></div>}
+      {rounds.map((round, ri) => (
+        <div className="rgroup" key={ri}>
+          <div className="rg-title">{labels[ri]}</div>
+          {round.map(mid => {
+            const m = work.matches.find(x => x.id === mid)
+            if (!m.teamA && !m.teamB) return null
+            return (
+              <div className="rec-match" key={mid}>
+                <span className={`rec-team ${m.winner === m.teamA ? 'win' : ''}`}>{teamLabel(m.teamA)}</span>
+                <span className="rec-score">{setScore(m) || (m.status === 'done' ? '부전승' : 'vs')}</span>
+                <span className={`rec-team right ${m.winner === m.teamB ? 'win' : ''}`}>{m.teamB ? teamLabel(m.teamB) : '—'}</span>
+              </div>
+            )
+          })}
+        </div>
+      ))}
     </div>
   )
 }
