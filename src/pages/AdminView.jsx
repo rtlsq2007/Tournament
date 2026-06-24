@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { QRCodeCanvas } from 'qrcode.react'
-import { getTournament } from '../lib/api.js'
+import { getTournament, putTournament } from '../lib/api.js'
 import { getFormat, FORMAT_LABELS } from '../formats/index.js'
 import { pairTeams } from '../lib/balancer.js'
 import Bracket from '../components/Bracket.jsx'
@@ -59,6 +59,7 @@ export default function AdminView() {
   const { id } = useParams()
   const [sp] = useSearchParams()
   const demo = sp.get('demo') === '1'
+  const token = sp.get('token')
   const [tab, setTab] = useState('players')
   const [data, setData] = useState(null)
   const [participants, setParticipants] = useState([])
@@ -66,13 +67,43 @@ export default function AdminView() {
   const [work, setWork] = useState(null) // { structure, matches }
   const [error, setError] = useState(null)
   const [zoom, setZoom] = useState(1)
+  const skipReconcileRef = useRef(false) // 로드 직후 팀 재구성 1회 스킵
+  const skipWorkRef = useRef(false)      // 로드 직후 대진 재생성 1회 스킵
+  const baseUpdatedAtRef = useRef(0)     // 낙관적 동시성 기준
 
   useEffect(() => {
     if (demo) { const d = demoData(); setData(d); setParticipants(d.participants); return }
     getTournament(id)
-      .then(res => { setData(res.data); setParticipants(res.data.participants || []) })
+      .then(res => {
+        const d = res.data
+        setData(d)
+        setParticipants(d.participants || [])
+        baseUpdatedAtRef.current = res.updatedAt || 0
+        if (d.teams?.length) { // 저장된 팀/대진이 있으면 그대로 복원 (재구성/재생성 스킵)
+          skipReconcileRef.current = true
+          skipWorkRef.current = true
+          setTeams(d.teams)
+          setWork({ structure: d.structure || { rounds: [], labels: [] }, matches: d.matches || [] })
+        }
+      })
       .catch(e => setError(e.message))
   }, [id, demo])
+
+  // 변경 자동 저장 (디바운스). 데모/토큰없음 제외.
+  useEffect(() => {
+    if (demo || !data || !token || !work) return
+    const t = setTimeout(() => {
+      const payload = {
+        name: data.name, format: data.format, matchType: data.matchType, pairingMode: data.pairingMode,
+        status: data.status, settings: data.settings,
+        participants, teams, structure: work.structure, matches: work.matches,
+      }
+      putTournament(id, token, payload, data.name, baseUpdatedAtRef.current)
+        .then(res => { baseUpdatedAtRef.current = res.updatedAt })
+        .catch(() => {})
+    }, 800)
+    return () => clearTimeout(t)
+  }, [data, participants, teams, work, demo, token, id])
 
   // 참가자 '구성'이 바뀔 때만 팀 재구성 (인원 추가/삭제·종목·구성방식).
   // 이름/티어만 바뀐 경우(=ID 집합 동일)엔 재구성하지 않아 팀명·드래그 배치가 유지됨.
@@ -80,6 +111,7 @@ export default function AdminView() {
   const activeIdsKey = participants.filter(p => p.checkedIn).map(p => p.id).join(',')
   useEffect(() => {
     if (!data) return
+    if (skipReconcileRef.current) { skipReconcileRef.current = false; cfgRef.current = `${data.matchType}|${data.pairingMode}`; return }
     const active = participants.filter(p => p.checkedIn)
     const cfg = `${data.matchType}|${data.pairingMode}`
     const cfgChanged = cfgRef.current !== null && cfgRef.current !== cfg
@@ -94,7 +126,8 @@ export default function AdminView() {
   // 팀 → 대진표 생성
   useEffect(() => {
     if (!data) return
-    if (!teams.length) { setWork({ structure: { rounds: [] }, matches: [] }); return }
+    if (skipWorkRef.current) { skipWorkRef.current = false; return }
+    if (!teams.length) { setWork({ structure: { rounds: [], labels: [] }, matches: [] }); return }
     const fmt = getFormat(data.format)
     const gen = fmt.generate(teams, data.settings)
     setWork({ structure: gen.structure, matches: gen.matches })
