@@ -2,20 +2,22 @@
 // standings: { champion, runnerUp, third, fourth, semiLosers } / labelOf(teamId) → 표시명
 export default function Podium({ standings, labelOf, compact = false }) {
   if (!standings?.champion) return null
-  const { champion, runnerUp, third, fourth, semiLosers } = standings
+  const { champion, runnerUp, third, fourth, semiLosers, thirdPlaceEnabled } = standings
 
   const thirdTeams = third ? [third] : (semiLosers || [])
   const joint = !third && thirdTeams.length > 1 // 3·4위전 미진행 → 공동 3위
-  // 시상대 배치: 왼쪽 2위 · 가운데 1위 · 오른쪽 3위
-  const cols = [
+  // 패자전(3·4위전) 미체크 시 우승만 표시. 체크 시 2위·1위·3위 시상대(+4위).
+  const cols = (thirdPlaceEnabled ? [
     { rank: 2, medal: '🥈', cls: 'silver', h: 'h2', teams: runnerUp ? [runnerUp] : [] },
     { rank: 1, medal: '🥇', cls: 'gold', h: 'h1', teams: [champion] },
     { rank: 3, medal: '🥉', cls: 'bronze', h: 'h3', teams: thirdTeams },
-  ].filter(c => c.teams.length)
+  ] : [
+    { rank: 1, medal: '🥇', cls: 'gold', h: 'h1', teams: [champion] },
+  ]).filter(c => c.teams.length)
 
   return (
     <div className={`podium ${compact ? 'podium-compact' : ''}`}>
-      <div className="podium-title">🏆 최종 순위</div>
+      <div className="podium-title">{thirdPlaceEnabled ? '🏆 최종 순위' : '🏆 우승'}</div>
       <div className="podium-stage">
         {cols.map(c => (
           <div className="pod-col" key={c.rank}>

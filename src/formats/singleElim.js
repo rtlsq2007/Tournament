@@ -157,7 +157,7 @@ export function standings(state) {
       .map(id => byId(id)).map(m => (m?.winner && m.teamA && m.teamB) ? (m.winner === m.teamA ? m.teamB : m.teamA) : null)
       .filter(Boolean)
   }
-  return { champion, runnerUp, third, fourth, semiLosers }
+  return { champion, runnerUp, third, fourth, semiLosers, thirdPlaceEnabled: !!state.structure.thirdPlace }
 }
 
 export default { generate, recompute, applyResult, pickWinner, setMatchBestOf, isComplete, standings }
