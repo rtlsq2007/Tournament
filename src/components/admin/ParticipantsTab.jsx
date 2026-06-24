@@ -107,17 +107,19 @@ export default function ParticipantsTab({ participants, setParticipants, teams, 
       <div className="panel-title">참가자 등록</div>
       <div className="panel-hint">명단을 줄단위로 입력하면 자동 반영됩니다. ‘선수 조정’에서 칩/팀을 꾹 눌러 자리를 바꿀 수 있습니다.</div>
 
-      <div className="row-between" style={{ marginBottom: 14 }}>
-        <div className="count-pill">
-          <button onClick={removeStep} aria-label={`${step}명 줄이기`}>−</button>
-          <span>{participants.length}명{step === 2 ? ` · ${teams.length}팀` : ''}</span>
-          <button onClick={addStep} aria-label={`${step}명 늘리기`}>＋</button>
+      <div style={{ marginBottom: 14 }}>
+        <div className="row" style={{ marginBottom: 8 }}>
+          <div className="count-pill">
+            <button onClick={removeStep} aria-label={`${step}명 줄이기`}>−</button>
+            <span>{participants.length}명{step === 2 ? ` · ${teams.length}팀` : ''}</span>
+            <button onClick={addStep} aria-label={`${step}명 늘리기`}>＋</button>
+          </div>
         </div>
-        <div className="shuffle-group">
-          <button className="btn btn-sm" onClick={aiBalanceTeams} disabled={aiBusy}
-            title="AI가 장단점·별점을 고려해 균형 구성">{aiBusy ? '🤖…' : '🤖 AI'}</button>
-          <button className="btn btn-sm" onClick={() => doShuffle('auto')} title="실력(별점) 균형으로 팀 구성">⚖️ 밸런스</button>
-          <button className="btn btn-sm" onClick={() => doShuffle('random')} title="완전 무작위로 팀 구성">🔀 일반</button>
+        <div className="shuffle-group" style={{ width: '100%' }}>
+          <button className="btn btn-sm" style={{ flex: 1 }} onClick={aiBalanceTeams} disabled={aiBusy}
+            title="AI가 장단점·별점을 고려해 균형 팀 구성">{aiBusy ? '🤖 구성 중…' : '🤖 AI 밸런스'}</button>
+          <button className="btn btn-sm" style={{ flex: 1 }} onClick={() => doShuffle('random')}
+            title="완전 무작위로 팀 구성">🔀 일반 셔플</button>
         </div>
       </div>
 
