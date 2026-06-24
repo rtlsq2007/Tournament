@@ -8,8 +8,7 @@ directory = "./dist"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
 
-# D1은 데이터베이스 생성 후 활성화 (지금은 데모가 백엔드 없이 동작).
-# [[d1_databases]]
-# binding = "DB"
-# database_name = "tournament-db"
-# database_id = "<wrangler d1 create 후 채우기>"
+[[d1_databases]]
+binding = "DB"
+database_name = "ckment-db"
+database_id = "01eb28b9-ddf0-452a-91e9-5ba1e86ff56a"
