@@ -140,17 +140,21 @@ ${lines}`
 
   // 키로 사용 가능한 모델을 조회해 가장 최신 flash 모델 선택 (Gemini 3 등 신규도 자동 사용)
   const candidates = await pickModels(env)
-  let text = null, lastErr = ''
+  let text = null, lastErr = '', usedModel = ''
   for (const model of candidates) {
     const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`, {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: 'application/json', temperature: 0.8 } }),
     })
-    if (r.ok) { const d = await r.json(); text = d?.candidates?.[0]?.content?.parts?.[0]?.text; if (text) break }
-    else { lastErr = (await r.text()).slice(0, 140); if (!/not found|not supported/i.test(lastErr)) break }
+    if (r.ok) { const d = await r.json(); text = d?.candidates?.[0]?.content?.parts?.[0]?.text; if (text) { usedModel = model; break } }
+    else {
+      lastErr = (await r.text()).slice(0, 140)
+      // 과부하/쿼터/모델없음 등 일시·대체 가능한 오류면 다음 모델 시도, 그 외(인증 등)는 중단
+      if (!/not found|not supported|overload|high demand|unavailable|exhausted|quota|rate|503|429/i.test(lastErr)) break
+    }
   }
   if (!text) return json({ error: 'AI 호출 실패: ' + lastErr }, 502)
   let parsed
   try { parsed = JSON.parse(text) } catch { return json({ error: 'AI 응답 형식 오류' }, 502) }
-  return json({ teams: Array.isArray(parsed.teams) ? parsed.teams : [] })
+  return json({ teams: Array.isArray(parsed.teams) ? parsed.teams : [], model: usedModel })
 }
