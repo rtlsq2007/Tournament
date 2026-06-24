@@ -23,7 +23,7 @@ function StarRating({ tier, onSet }) {
   )
 }
 
-export default function ParticipantsTab({ participants, setParticipants, teams, setTeams, matchType, swapPlayers, swapTeams, deletePlayer }) {
+export default function ParticipantsTab({ participants, setParticipants, teams, setTeams, matchType, members = [], swapPlayers, swapTeams, deletePlayer }) {
   const [sub, setSub] = useState('list')
   const [bulk, setBulk] = useState(participants.map(p => p.name).join('\n'))
   const step = matchType === 'singles' ? 1 : 2
@@ -44,7 +44,16 @@ export default function ParticipantsTab({ participants, setParticipants, teams, 
   const onBulk = v => {
     setBulk(v)
     const names = v.split('\n').map(s => s.trim()).filter(Boolean)
-    setParticipants(names.map((name, i) => participants[i] ? { ...participants[i], name } : mkP(name)))
+    setParticipants(names.map((name, i) => {
+      const base = participants[i]
+      const mem = name ? members.find(mm => mm.name === name) : null
+      if (mem) {
+        // 라켓단 멤버와 이름 일치 → 실력 자동 채움(이미 연결됐으면 수동 수정 보존)
+        if (base && base.memberId === mem.id) return { ...base, name }
+        return { id: base?.id || newPid(), name, tier: mem.tier, gender: base?.gender || 'M', checkedIn: base?.checkedIn ?? true, memberId: mem.id }
+      }
+      return base ? { ...base, name, memberId: undefined } : mkP(name)
+    }))
   }
   const setCount = next => { setParticipants(next); setBulk(next.map(p => p.name).join('\n')) }
   const addStep = () => setCount([...participants, ...Array.from({ length: step }, (_, k) => mkP(`참가자${participants.length + k + 1}`))])

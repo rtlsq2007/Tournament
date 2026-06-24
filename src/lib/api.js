@@ -24,6 +24,20 @@ export async function putTournament(id, token, data, name, baseUpdatedAt) {
   return r.json()
 }
 
+// 라켓단 멤버 (동아리 공용)
+export async function getMembers() {
+  const r = await fetch('/api/members')
+  if (!r.ok) throw new Error('멤버 불러오기 실패')
+  return (await r.json()).members || []
+}
+export async function putMembers(members) {
+  const r = await fetch('/api/members', {
+    method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ members }),
+  })
+  if (!r.ok) throw new Error('멤버 저장 실패')
+  return r.json()
+}
+
 export function usePolling(id, intervalMs = 4000) {
   const [state, setState] = useState(null)
   const [error, setError] = useState(null)

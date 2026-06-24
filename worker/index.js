@@ -14,6 +14,16 @@ export default {
 
 async function handleApi(request, env, url) {
   if (!env.DB) return json({ error: 'DB not configured' }, 503)
+  try {
+    // 라켓단 멤버 DB (동아리 공용)
+    if (url.pathname === '/api/members') {
+      if (request.method === 'GET') return await getMembers(env)
+      if (request.method === 'PUT') return await putMembers(request, env)
+      return json({ error: 'method not allowed' }, 405)
+    }
+  } catch (e) {
+    return json({ error: String(e?.message || e) }, 500)
+  }
   const m = url.pathname.match(/^\/api\/tournament\/?([^/]*)$/)
   if (!m) return json({ error: 'not found' }, 404)
   const id = m[1]
@@ -67,4 +77,22 @@ async function putTournament(request, env, id) {
   await env.DB.prepare('UPDATE tournaments SET data_json=?, name=?, updated_at=? WHERE id=?')
     .bind(JSON.stringify(body.data), body.name ?? row.name, now, id).run()
   return json({ updatedAt: now })
+}
+
+// ===== 라켓단 멤버 (동아리 공용 명부) =====
+async function ensureKv(env) {
+  await env.DB.prepare('CREATE TABLE IF NOT EXISTS app_kv (k TEXT PRIMARY KEY, v TEXT)').run()
+}
+async function getMembers(env) {
+  await ensureKv(env)
+  const row = await env.DB.prepare("SELECT v FROM app_kv WHERE k='members'").first()
+  return json({ members: row ? JSON.parse(row.v) : [] })
+}
+async function putMembers(request, env) {
+  await ensureKv(env)
+  const body = await request.json()
+  const members = Array.isArray(body.members) ? body.members : []
+  await env.DB.prepare("INSERT INTO app_kv (k, v) VALUES ('members', ?) ON CONFLICT(k) DO UPDATE SET v=excluded.v")
+    .bind(JSON.stringify(members)).run()
+  return json({ ok: true, count: members.length })
 }

@@ -1,15 +1,17 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { QRCodeCanvas } from 'qrcode.react'
-import { getTournament, putTournament } from '../lib/api.js'
+import { getTournament, putTournament, getMembers, putMembers } from '../lib/api.js'
 import { getFormat, FORMAT_LABELS } from '../formats/index.js'
 import { pairTeams } from '../lib/balancer.js'
 import Bracket from '../components/Bracket.jsx'
 import ParticipantsTab from '../components/admin/ParticipantsTab.jsx'
+import ClubTab from '../components/admin/ClubTab.jsx'
 
 const TABS = [
   { key: 'info', label: '경기정보', ico: '⚙️' },
   { key: 'players', label: '참가자', ico: '👥' },
+  { key: 'club', label: '라켓단', ico: '📇' },
   { key: 'results', label: '경기판정', ico: '📋' },
   { key: 'record', label: '경기기록', ico: '📜' },
   { key: 'share', label: '공유', ico: '🔗' },
@@ -71,6 +73,18 @@ export default function AdminView() {
   const skipReconcileRef = useRef(false) // 로드 직후 팀 재구성 1회 스킵
   const skipWorkRef = useRef(false)      // 로드 직후 대진 재생성 1회 스킵
   const baseUpdatedAtRef = useRef(0)     // 낙관적 동시성 기준
+  const [members, setMembers] = useState(null) // 라켓단 멤버(동아리 공용)
+  const memberFirstRef = useRef(true)
+
+  // 라켓단 멤버 로드 (데모/실서버 공통, 백엔드 있으면)
+  useEffect(() => { getMembers().then(setMembers).catch(() => setMembers([])) }, [])
+  // 멤버 변경 자동 저장 (최초 로드 제외)
+  useEffect(() => {
+    if (members === null) return
+    if (memberFirstRef.current) { memberFirstRef.current = false; return }
+    const t = setTimeout(() => { putMembers(members).catch(() => {}) }, 800)
+    return () => clearTimeout(t)
+  }, [members])
 
   useEffect(() => {
     if (demo) { const d = demoData(); setData(d); setParticipants(d.participants); return }
@@ -226,9 +240,11 @@ export default function AdminView() {
 
         {tab === 'players' && (
           <ParticipantsTab participants={participants} setParticipants={setParticipants}
-            teams={teams} setTeams={setTeams} matchType={data.matchType}
+            teams={teams} setTeams={setTeams} matchType={data.matchType} members={members || []}
             swapPlayers={swapPlayers} swapTeams={swapTeams} deletePlayer={deletePlayer} />
         )}
+
+        {tab === 'club' && <ClubTab members={members} setMembers={setMembers} />}
 
         {tab === 'results' && (
           <div>
