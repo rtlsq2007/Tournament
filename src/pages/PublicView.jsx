@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom'
 import { usePolling } from '../lib/api.js'
 import { getFormat } from '../formats/index.js'
 import Bracket from '../components/Bracket.jsx'
+import Podium from '../components/Podium.jsx'
 import ThemeToggle from '../components/ThemeToggle.jsx'
 
 export default function PublicView() {
@@ -43,8 +44,8 @@ export default function PublicView() {
   const teamMode = data.matchType !== 'singles'
   const teamLabel = t => t.label?.trim() || (t.playerIds.length > 1 ? `${t.no}팀`
     : (data.participants.find(p => p.id === t.playerIds[0])?.name || '?'))
-  const champ = hasBracket && fmt.isComplete(work) ? fmt.standings(work).champion : null
-  const champTeam = champ && data.teams.find(t => t.id === champ)
+  const finalStandings = hasBracket && fmt.isComplete(work) ? fmt.standings(work) : null
+  const labelOf = id => { const t = data.teams.find(x => x.id === id); return t ? teamLabel(t) : '?' }
 
   return (
     <div className="public">
@@ -58,9 +59,7 @@ export default function PublicView() {
         </div>
       </div>
 
-      {champTeam && (
-        <div className="champ-banner">🏆 우승 — <strong>{teamLabel(champTeam)}</strong></div>
-      )}
+      {finalStandings && <Podium standings={finalStandings} labelOf={labelOf} />}
 
       <div className="public-controls">
         <input className="input" placeholder="내 이름 검색 → 내 경기 하이라이트"

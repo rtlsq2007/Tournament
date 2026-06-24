@@ -139,13 +139,25 @@ export function isComplete(state) {
 }
 
 export function standings(state) {
-  const champion = isComplete(state)
-    ? state.matches.find(m => m.id === state.structure.rounds.at(-1)[0]).winner
-    : null
-  // 3·4위전이 있으면 그 승자가 3위
-  const tpId = state.structure.thirdPlace
-  const third = tpId ? (state.matches.find(m => m.id === tpId)?.winner || null) : null
-  return { champion, third }
+  const byId = id => state.matches.find(m => m.id === id)
+  const rounds = state.structure.rounds
+  const fm = rounds.length ? byId(rounds.at(-1)[0]) : null
+  const complete = isComplete(state)
+  const champion = complete ? fm.winner : null
+  // 준우승: 결승 패자
+  const runnerUp = complete && fm.teamA && fm.teamB ? (fm.winner === fm.teamA ? fm.teamB : fm.teamA) : null
+  // 3·4위전이 있으면 승자=3위, 패자=4위
+  const tp = state.structure.thirdPlace ? byId(state.structure.thirdPlace) : null
+  const third = tp?.winner || null
+  const fourth = tp?.winner && tp.teamA && tp.teamB ? (tp.winner === tp.teamA ? tp.teamB : tp.teamA) : null
+  // 3·4위전이 없으면 준결승 두 패자가 공동 3위
+  let semiLosers = []
+  if (!tp && complete && rounds.length >= 2) {
+    semiLosers = rounds[rounds.length - 2]
+      .map(id => byId(id)).map(m => (m?.winner && m.teamA && m.teamB) ? (m.winner === m.teamA ? m.teamB : m.teamA) : null)
+      .filter(Boolean)
+  }
+  return { champion, runnerUp, third, fourth, semiLosers }
 }
 
 export default { generate, recompute, applyResult, pickWinner, setMatchBestOf, isComplete, standings }

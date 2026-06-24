@@ -74,6 +74,36 @@ describe('singleElim 결과/진출', () => {
     s = applyResult(s, fin, [{ a: 21, b: 10 }, { a: 21, b: 15 }], { bestOf: 1 })
     expect(byId(s, fin).winner).toBe(byId(s, fin).teamA)
   })
+  it('최종 순위 1~4등: 결승+3·4위전 완료 시', () => {
+    const opt = { bestOf: 1, thirdPlace: true }
+    let s = generate(mkTeams(4), opt)
+    const semis = s.structure.rounds[0]
+    const a = byId(s, semis[0]), b = byId(s, semis[1])
+    s = pickWinner(s, semis[0], a.teamA, opt)
+    s = pickWinner(s, semis[1], b.teamA, opt)
+    const fin = s.structure.rounds[1][0]
+    const finM = byId(s, fin)
+    s = pickWinner(s, fin, finM.teamA, opt) // 우승=finM.teamA, 준우승=finM.teamB
+    const tp = byId(s, s.structure.thirdPlace)
+    s = pickWinner(s, tp.id, tp.teamA, opt) // 3위=tp.teamA, 4위=tp.teamB
+    const st = standings(s)
+    expect(st.champion).toBe(finM.teamA)
+    expect(st.runnerUp).toBe(finM.teamB)
+    expect(st.third).toBe(tp.teamA)
+    expect(st.fourth).toBe(tp.teamB)
+  })
+  it('3·4위전 없으면 준결승 패자 공동 3위', () => {
+    let s = generate(mkTeams(4), { bestOf: 1 })
+    const semis = s.structure.rounds[0]
+    const a = byId(s, semis[0]), b = byId(s, semis[1])
+    s = pickWinner(s, semis[0], a.teamA, { bestOf: 1 })
+    s = pickWinner(s, semis[1], b.teamA, { bestOf: 1 })
+    const fin = s.structure.rounds[1][0]
+    s = pickWinner(s, fin, byId(s, fin).teamA, { bestOf: 1 })
+    const st = standings(s)
+    expect(st.semiLosers.sort()).toEqual([a.teamB, b.teamB].sort())
+    expect(st.third).toBe(null)
+  })
   it('결승까지 완료 시 우승자', () => {
     let s = generate(mkTeams(4), { bestOf: 1 })
     const semis = s.structure.rounds[0]

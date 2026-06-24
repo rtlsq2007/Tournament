@@ -156,15 +156,18 @@ body {
 .shuffle-group { display:flex; gap:6px; flex:none; }
 
 /* ===== 최근 대회 행 ===== */
-.recent-row { display:flex; align-items:center; justify-content:space-between; padding:13px 14px; border:1px solid var(--border);
-  border-radius: var(--r-ctrl); margin-top:8px; text-decoration:none; color: var(--text); font-weight:600;
-  transition: border-color .15s ease, background .15s ease; }
+.recent-row { display:flex; align-items:center; gap:8px; padding:13px 14px; border:1px solid var(--border);
+  border-radius: var(--r-ctrl); margin-top:8px; transition: border-color .15s ease, background .15s ease; }
 .recent-row:hover { border-color: var(--accent); background: var(--accent-weak); }
-.recent-row .meta { font-size:12px; color: var(--text-muted); font-weight:500; }
+.recent-link { flex:1; min-width:0; display:flex; align-items:center; justify-content:space-between; gap:8px;
+  text-decoration:none; color: var(--text); font-weight:600; }
+.recent-link > span:first-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.recent-row .meta { font-size:12px; color: var(--text-muted); font-weight:500; flex:none; }
 
 /* ===== 테마 토글 ===== */
 .theme-btn { position:fixed; top:14px; right:14px; z-index:10; width:40px; height:40px; border-radius:12px;
-  display:grid; place-items:center; font-size:16px; background: var(--surface); border:1px solid var(--border); }
+  display:grid; place-items:center; font-size:16px; background: var(--surface); border:1px solid var(--border);
+  color: var(--text); cursor:pointer; } /* 글자색=테마색: 다크→흰색, 라이트→검정 */
 .theme-btn:hover { border-color: var(--accent); }
 .theme-btn-bottom { position:fixed; top:auto; bottom:18px; left:50%; right:auto; transform:translateX(-50%);
   width:auto; height:auto; padding:10px 18px; border-radius:var(--r-pill); font-size:14px; font-weight:600; box-shadow:var(--shadow-md); }
@@ -173,7 +176,7 @@ body {
 
 /* ===== 참가자 읽기전용 화면 ===== */
 .public { min-height:100svh; padding:18px 16px 84px; display:flex; flex-direction:column; gap:14px; }
-.public-top, .public-controls, .champ-banner { max-width:760px; width:100%; margin:0 auto; }
+.public-top, .public-controls, .champ-banner, .podium { max-width:760px; width:100%; margin:0 auto; }
 .public-controls { display:flex; align-items:center; gap:12px; }
 .public-controls .input { flex:1; }
 .champ-banner { text-align:center; padding:14px; border-radius:var(--r-card); color:#fff; font-weight:800; font-size:17px;
@@ -387,6 +390,27 @@ body {
 .champ-box.waiting { color:var(--text-muted); background:var(--surface); border:1px dashed var(--border-strong);
   box-shadow:none; font-weight:600; font-size:15px; }
 .champ-box.waiting::after, .champ-box.waiting::before { display:none; }
+
+/* ===== 최종 순위 (1~4등) ===== */
+.podium { border:1px solid var(--border); border-radius:var(--r-card); background:var(--surface); padding:16px; box-shadow:var(--shadow-sm); }
+.podium-title { font-size:15px; font-weight:800; letter-spacing:-0.01em; margin-bottom:12px; }
+.podium-list { display:flex; flex-direction:column; gap:8px; }
+.podium-row { display:flex; align-items:center; gap:12px; padding:11px 14px; border-radius:var(--r-ctrl);
+  border:1px solid var(--border); background:var(--surface-2); }
+.podium-medal { font-size:22px; line-height:1; flex:none; }
+.podium-rank { font-size:12px; font-weight:700; color:var(--text-muted); min-width:56px; flex:none; }
+.podium-name { font-weight:800; font-size:16px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.podium-row.gold { border-color:#f59e0b; background:linear-gradient(100deg, rgba(245,158,11,.18), transparent 70%); }
+.podium-row.gold .podium-name { font-size:18px; }
+.podium-row.silver { border-color:#9ca3af; background:linear-gradient(100deg, rgba(156,163,175,.16), transparent 70%); }
+.podium-row.bronze { border-color:#b45309; background:linear-gradient(100deg, rgba(180,83,9,.16), transparent 70%); }
+.podium-row.fourth { opacity:.85; }
+/* 대진표 위 컴팩트 버전 */
+.podium-compact { padding:12px 14px; margin-bottom:14px; }
+.podium-compact .podium-row { padding:8px 12px; }
+.podium-compact .podium-name { font-size:14px; }
+.podium-compact .podium-row.gold .podium-name { font-size:15px; }
+.podium-compact .podium-medal { font-size:18px; }
 
 /* 대진표 툴바 (확대/축소) */
 .bracket-toolbar { position:sticky; top:0; display:flex; align-items:center; gap:10px; margin-bottom:16px; z-index:2;

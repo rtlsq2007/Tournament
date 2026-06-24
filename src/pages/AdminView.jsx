@@ -6,6 +6,7 @@ import { getFormat, FORMAT_LABELS } from '../formats/index.js'
 import { pairTeams } from '../lib/balancer.js'
 import { todayName } from '../lib/date.js'
 import Bracket from '../components/Bracket.jsx'
+import Podium from '../components/Podium.jsx'
 import ThemeToggle from '../components/ThemeToggle.jsx'
 import ParticipantsTab from '../components/admin/ParticipantsTab.jsx'
 import ClubTab from '../components/admin/ClubTab.jsx'
@@ -211,6 +212,15 @@ export default function AdminView() {
   const publicUrl = `${window.location.origin}/t/${id}`
   const setSetting = patch => setData({ ...data, settings: { ...data.settings, ...patch } })
 
+  // 최종 순위(1~4등) — 결승까지 끝나면 표시
+  const fmtView = getFormat(data.format)
+  const finalStandings = work.matches?.length && fmtView.isComplete(work) ? fmtView.standings(work) : null
+  const labelOf = tid => {
+    const t = teams.find(x => x.id === tid)
+    if (!t) return '?'
+    return t.playerIds.length > 1 ? (t.label?.trim() || `${t.no}팀`) : (participants.find(p => p.id === t.playerIds[0])?.name || '?')
+  }
+
   return (
     <div className="editor">
       <div className="editor-top">
@@ -325,6 +335,7 @@ export default function AdminView() {
       </section>
 
       <div className="editor-bracket" ref={bracketBoxRef}>
+        {finalStandings && <Podium standings={finalStandings} labelOf={labelOf} compact />}
         <div className="bracket-toolbar">
           <span className="muted small" style={{ fontWeight: 600 }}>대진표 크기</span>
           <input type="range" className="zoom-range" min="0.4" max="1.5" step="0.05"

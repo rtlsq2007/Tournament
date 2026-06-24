@@ -13,7 +13,14 @@ const SPORTS = [
 export default function Home() {
   const nav = useNavigate()
   const [busy, setBusy] = useState(false)
-  const recent = JSON.parse(localStorage.getItem('recent_tournaments') || '[]')
+  const [recent, setRecent] = useState(() => JSON.parse(localStorage.getItem('recent_tournaments') || '[]'))
+
+  const removeRecent = (id, e) => {
+    e.preventDefault(); e.stopPropagation()
+    const next = recent.filter(r => r.id !== id)
+    setRecent(next)
+    localStorage.setItem('recent_tournaments', JSON.stringify(next))
+  }
 
   const start = async sport => {
     setBusy(true)
@@ -66,10 +73,13 @@ export default function Home() {
         <div className="card">
           <h2 className="h2">최근 대회 <span className="muted small">운영자</span></h2>
           {recent.map(r => (
-            <a key={r.id} className="recent-row" href={`/t/${r.id}/admin?token=${r.token}`}>
-              <span>{r.name || '(이름 없음)'}</span>
-              <span className="meta">{r.id} →</span>
-            </a>
+            <div key={r.id} className="recent-row">
+              <a className="recent-link" href={`/t/${r.id}/admin?token=${r.token}`}>
+                <span>{r.name || '(이름 없음)'}</span>
+                <span className="meta">{r.id} →</span>
+              </a>
+              <button className="icon-btn" title="목록에서 삭제" onClick={e => removeRecent(r.id, e)}>🗑</button>
+            </div>
           ))}
         </div>
       )}
