@@ -385,7 +385,12 @@ function RecordView({ data, setData, teams, participants, work }) {
       round: labels[ri],
       matches: round.filter(mid => { const m = work.matches.find(x => x.id === mid); return m.teamA || m.teamB }).map(mid => {
         const m = work.matches.find(x => x.id === mid)
-        return { a: teamLabel(m.teamA), b: m.teamB ? teamLabel(m.teamB) : '—', score: setScore(m) || (m.status === 'done' ? '부전승' : 'vs'), winner: m.winner ? teamLabel(m.winner) : null }
+        return {
+          a: teamLabel(m.teamA), b: m.teamB ? teamLabel(m.teamB) : '—',
+          games: (m.games || []).map(g => ({ a: g.a, b: g.b })), // 세트별 원점수 보존
+          bye: !!m.teamA && !m.teamB && m.status === 'done',
+          winner: m.winner ? teamLabel(m.winner) : null,
+        }
       }),
     })),
     champion: champion ? teamLabel(champion) : null,
@@ -426,13 +431,33 @@ function RecordView({ data, setData, teams, participants, work }) {
               {r.rounds.map((rd, i) => (
                 <div className="rgroup" key={i}>
                   <div className="rg-title">{rd.round}</div>
-                  {rd.matches.map((mt, j) => (
-                    <div className="rec-match" key={j}>
-                      <span className={`rec-team ${mt.winner === mt.a ? 'win' : ''}`}>{mt.a}</span>
-                      <span className="rec-score">{mt.score}</span>
-                      <span className={`rec-team right ${mt.winner === mt.b ? 'win' : ''}`}>{mt.b}</span>
-                    </div>
-                  ))}
+                  {rd.matches.map((mt, j) => {
+                    const games = mt.games || []
+                    const setsA = games.reduce((s, g) => s + (g.a > g.b ? 1 : 0), 0)
+                    const setsB = games.reduce((s, g) => s + (g.b > g.a ? 1 : 0), 0)
+                    const head = games.length > 1 ? `${setsA} : ${setsB} 세트`
+                      : games.length === 1 ? `${games[0].a} : ${games[0].b}`
+                        : (mt.bye ? '부전승' : (mt.score || 'vs')) // mt.score: 옛 기록 호환
+                    return (
+                      <div className="rec-match-box" key={j}>
+                        <div className="rec-match">
+                          <span className={`rec-team ${mt.winner === mt.a ? 'win' : ''}`}>{mt.a}</span>
+                          <span className="rec-score">{head}</span>
+                          <span className={`rec-team right ${mt.winner === mt.b ? 'win' : ''}`}>{mt.b}</span>
+                        </div>
+                        {games.length > 0 && (
+                          <div className="rec-sets">
+                            {games.map((g, k) => (
+                              <span className="rec-set" key={k}>
+                                {games.length > 1 && <em>{k + 1}세트</em>}
+                                <b className={g.a > g.b ? 'w' : ''}>{g.a}</b>:<b className={g.b > g.a ? 'w' : ''}>{g.b}</b>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               ))}
             </div>

@@ -250,6 +250,14 @@ body {
 .rec-team.right { text-align:right; }
 .rec-team.win { color:var(--accent); }
 .rec-score { flex:none; font-size:13px; font-weight:700; color:var(--text-muted); min-width:66px; text-align:center; }
+.rec-match-box { margin-bottom:7px; }
+.rec-match-box .rec-match { margin-bottom:4px; }
+.rec-sets { display:flex; flex-wrap:wrap; gap:6px; padding-left:2px; }
+.rec-set { font-size:12px; display:inline-flex; align-items:center; gap:3px; background:var(--surface);
+  border:1px solid var(--border); border-radius:var(--r-pill); padding:3px 10px; }
+.rec-set em { font-style:normal; color:var(--text-muted); margin-right:3px; }
+.rec-set b { font-weight:700; color:var(--text-muted); }
+.rec-set b.w { color:var(--accent); }
 
 @media (max-width: 900px) {
   .editor { grid-template-columns:1fr; grid-template-rows:58px auto 1fr; grid-template-areas:"top" "panel" "bracket"; }
