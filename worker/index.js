@@ -100,6 +100,25 @@ async function putMembers(request, env) {
 }
 
 // ===== AI 밸런싱 (Gemini) =====
+// 키로 사용 가능한 모델을 조회해 가장 최신 flash 모델부터 시도하도록 후보 목록 생성
+async function pickModels(env) {
+  const verNum = n => { const m = n.match(/gemini-(\d+(?:\.\d+)?)/i); return m ? parseFloat(m[1]) : 0 }
+  let available = []
+  try {
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${env.GEMINI_API_KEY}`)
+    if (r.ok) {
+      const d = await r.json()
+      available = (d.models || [])
+        .filter(m => (m.supportedGenerationMethods || []).includes('generateContent')
+          && /models\/gemini-/i.test(m.name) && !/embedding|aqa|tts|image|learnlm/i.test(m.name))
+        .map(m => m.name.replace(/^models\//, ''))
+    }
+  } catch { /* 조회 실패 시 폴백 사용 */ }
+  const flash = available.filter(n => /flash/i.test(n) && !/preview|exp|thinking/i.test(n))
+  const ordered = [...(flash.length ? flash : available)].sort((a, b) => verNum(b) - verNum(a))
+  return [...new Set([...ordered, 'gemini-2.5-flash', 'gemini-2.0-flash'])].slice(0, 5)
+}
+
 async function balanceTeams(request, env) {
   if (!env.GEMINI_API_KEY) return json({ error: 'AI 키가 설정되지 않았습니다. (GEMINI_API_KEY)' }, 503)
   const body = await request.json()
@@ -119,15 +138,18 @@ async function balanceTeams(request, env) {
 선수목록:
 ${lines}`
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${env.GEMINI_API_KEY}`
-  const r = await fetch(url, {
-    method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: 'application/json', temperature: 0.8 } }),
-  })
-  if (!r.ok) return json({ error: 'AI 호출 실패: ' + (await r.text()).slice(0, 180) }, 502)
-  const d = await r.json()
-  const text = d?.candidates?.[0]?.content?.parts?.[0]?.text
-  if (!text) return json({ error: 'AI 응답이 비었습니다.' }, 502)
+  // 키로 사용 가능한 모델을 조회해 가장 최신 flash 모델 선택 (Gemini 3 등 신규도 자동 사용)
+  const candidates = await pickModels(env)
+  let text = null, lastErr = ''
+  for (const model of candidates) {
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: 'application/json', temperature: 0.8 } }),
+    })
+    if (r.ok) { const d = await r.json(); text = d?.candidates?.[0]?.content?.parts?.[0]?.text; if (text) break }
+    else { lastErr = (await r.text()).slice(0, 140); if (!/not found|not supported/i.test(lastErr)) break }
+  }
+  if (!text) return json({ error: 'AI 호출 실패: ' + lastErr }, 502)
   let parsed
   try { parsed = JSON.parse(text) } catch { return json({ error: 'AI 응답 형식 오류' }, 502) }
   return json({ teams: Array.isArray(parsed.teams) ? parsed.teams : [] })
